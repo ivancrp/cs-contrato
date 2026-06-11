@@ -62,6 +62,10 @@ export function calculateOutputProbabilities(
     return new Map();
   }
 
+  if (inputs.some((input) => input.item.souvenir || input.listing.souvenir)) {
+    return new Map();
+  }
+
   const collectionMap = new Map(collections.map((c) => [c.id, c]));
   const collectionCounts = new Map<string, number>();
 

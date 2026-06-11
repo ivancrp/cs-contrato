@@ -61,7 +61,10 @@ export function SearchForm({
           <Autocomplete
             value={skinName}
             onChange={setSkinName}
-            onSelect={(skin) => setSkinName(skin.name)}
+            onSelect={(skin) => {
+              setSkinName(skin.name);
+              setStattrak(skin.stattrak);
+            }}
             suggestions={suggestions}
             placeholder="Ex: M4A1-S | Black Lotus"
           />

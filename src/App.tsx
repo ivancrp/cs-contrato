@@ -133,7 +133,7 @@ function App() {
                 <ContractCard
                   key={contract.id}
                   contract={contract}
-                  onSimulate={(c) => tradeUpService.simulate(c)}
+                  onSimulate={(c, iterations) => tradeUpService.simulate(c, iterations)}
                   minLossAnalysis={contract.tier === 'min_loss' ? result.minLossAnalysis : undefined}
                 />
               ))}

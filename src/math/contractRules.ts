@@ -8,12 +8,17 @@ export interface ContractValidationResult {
   reason?: string;
 }
 
+function hasSouvenir(input: ContractInput): boolean {
+  return !!(input.item.souvenir || input.listing.souvenir);
+}
+
 /**
  * Valida regras oficiais de entrada do contrato CS2:
  * - exatamente 10 skins
  * - mesma raridade entre todas
  * - raridade um tier abaixo da skin alvo
  * - mesma versão StatTrak
+ * - sem Souvenir
  */
 export function validateContractInputs(
   inputs: ContractInput[],
@@ -23,6 +28,13 @@ export function validateContractInputs(
     return {
       valid: false,
       reason: `Contrato exige ${CONTRACT_INPUT_SIZE} entradas, recebeu ${inputs.length}.`,
+    };
+  }
+
+  if (inputs.some(hasSouvenir)) {
+    return {
+      valid: false,
+      reason: 'Souvenir não pode ser utilizado em Trade Up.',
     };
   }
 
@@ -50,11 +62,28 @@ export function validateContractInputs(
     };
   }
 
-  const stattrakMismatch = inputs.some((input) => input.item.stattrak !== targetSkin.stattrak);
-  if (stattrakMismatch) {
+  const stattrakValues = new Set(inputs.map((input) => input.item.stattrak));
+  if (stattrakValues.size !== 1) {
     return {
       valid: false,
-      reason: 'Entradas devem ter a mesma versão StatTrak da skin alvo.',
+      reason: 'Todas as entradas devem ser StatTrak ou todas normais.',
+    };
+  }
+
+  const [inputStatTrak] = [...stattrakValues];
+  if (inputStatTrak !== targetSkin.stattrak) {
+    return {
+      valid: false,
+      reason: targetSkin.stattrak
+        ? 'Saída StatTrak exige 10 entradas StatTrak.'
+        : 'Saída normal exige 10 entradas sem StatTrak.',
+    };
+  }
+
+  if (inputs.some((input) => input.listing.stattrak !== input.item.stattrak)) {
+    return {
+      valid: false,
+      reason: 'Listagem de mercado inconsistente com a versão StatTrak da skin.',
     };
   }
 
@@ -73,4 +102,8 @@ export function assertValidContractInputs(
 
 export function getRequiredInputRarity(targetSkin: SkinItem): Rarity | null {
   return getInputRarityForTarget(targetSkin.rarity);
+}
+
+export function isSouvenirItem(item: SkinItem): boolean {
+  return !!item.souvenir;
 }

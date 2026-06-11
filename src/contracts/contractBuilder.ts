@@ -28,6 +28,21 @@ const TIER_LABELS: Record<string, string> = {
 
 const FLOAT_SAMPLES = [0.01, 0.03, 0.05, 0.07, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35];
 
+export function resolveTargetSkin(params: TargetSearchParams): SkinItem {
+  const targetSkin = findSkinByName(params.skinName, params.stattrak);
+  if (!targetSkin) {
+    throw new Error(`Skin não encontrada: ${params.skinName}`);
+  }
+  if (targetSkin.stattrak !== params.stattrak) {
+    throw new Error(
+      params.stattrak
+        ? 'Esta skin não possui versão StatTrak.'
+        : 'Selecione StatTrak para esta skin alvo.',
+    );
+  }
+  return targetSkin;
+}
+
 /**
  * Constrói pool de candidatos com preços reais do Steam Market.
  */
@@ -40,7 +55,7 @@ export async function buildCandidatePool(
 
   await priceService.preload();
 
-  const candidates = findInputCandidates(targetSkin, params.stattrak, params.maxFloat);
+  const candidates = findInputCandidates(targetSkin, params.maxFloat);
   const targetCollectionIds = new Set(
     findCollectionsForTarget(targetSkin).map((c) => c.id),
   );
@@ -69,6 +84,7 @@ export async function buildCandidatePool(
         itemId: item.id,
         collectionId: item.collectionId,
         rarity: item.rarity,
+        stattrak: item.stattrak,
         price,
         float: f,
         isTargetCollection: targetCollectionIds.has(item.collectionId),
@@ -102,6 +118,9 @@ function combinationToInputs(
     }
     if (item.rarity !== candidate.rarity) {
       throw new Error(`Raridade inconsistente para ${item.name}.`);
+    }
+    if (item.stattrak !== candidate.stattrak) {
+      throw new Error(`Versão StatTrak inconsistente para ${item.name}.`);
     }
     const wear = floatToWear(candidate.float);
     const listing: MarketListing = {
@@ -249,8 +268,7 @@ export async function createEvaluationContext(
 export async function buildThreeContracts(
   params: TargetSearchParams,
 ): Promise<TradeUpContract[]> {
-  const targetSkin = findSkinByName(params.skinName, params.stattrak);
-  if (!targetSkin) throw new Error(`Skin não encontrada: ${params.skinName}`);
+  const targetSkin = resolveTargetSkin(params);
 
   const candidates = await buildCandidatePool(targetSkin, params);
   if (candidates.length === 0) throw new Error('Nenhum candidato de entrada encontrado');
@@ -285,8 +303,7 @@ export async function buildThreeContracts(
 export async function findBestContract(
   params: TargetSearchParams,
 ): Promise<TradeUpContract> {
-  const targetSkin = findSkinByName(params.skinName, params.stattrak);
-  if (!targetSkin) throw new Error(`Skin não encontrada: ${params.skinName}`);
+  const targetSkin = resolveTargetSkin(params);
 
   const candidates = await buildCandidatePool(targetSkin, params);
   const ctx = await createEvaluationContext(targetSkin, candidates, {
@@ -318,8 +335,7 @@ export async function findBestContract(
 export async function buildMinLossContract(
   params: TargetSearchParams,
 ): Promise<TradeUpContract> {
-  const targetSkin = findSkinByName(params.skinName, params.stattrak);
-  if (!targetSkin) throw new Error(`Skin não encontrada: ${params.skinName}`);
+  const targetSkin = resolveTargetSkin(params);
 
   const candidates = await buildCandidatePool(targetSkin, params);
   const ctx = await createEvaluationContext(targetSkin, candidates, {

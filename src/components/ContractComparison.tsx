@@ -12,8 +12,9 @@ const METRICS = [
   { key: 'targetChance', label: 'Chance', format: (c: TradeUpContract) => formatPercent(c.evMetrics.targetChance * 100) },
   { key: 'ev', label: 'EV', format: (c: TradeUpContract) => formatCurrency(c.evMetrics.expectedValue) },
   { key: 'roi', label: 'ROI', format: (c: TradeUpContract) => formatPercent(c.evMetrics.roi) },
-  { key: 'float', label: 'Float', format: (c: TradeUpContract) => formatFloat(c.floatMetrics.expectedOutputFloat) },
   { key: 'profit', label: 'Lucro', format: (c: TradeUpContract) => formatCurrency(c.evMetrics.expectedProfit) },
+  { key: 'float', label: 'Float', format: (c: TradeUpContract) => formatFloat(c.floatMetrics.expectedOutputFloat) },
+  { key: 'breakEven', label: 'Break-even', format: (c: TradeUpContract) => formatPercent(c.evMetrics.breakEvenChance * 100) },
   { key: 'loss', label: 'Perda média', format: (c: TradeUpContract) => formatCurrency(c.evMetrics.averageLoss) },
   { key: 'risk', label: 'Risco', format: (c: TradeUpContract) => c.evMetrics.riskScore.toFixed(1) },
 ] as const;

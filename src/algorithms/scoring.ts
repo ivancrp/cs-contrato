@@ -8,13 +8,14 @@ export interface ScoreWeights {
   risk: number;
   loss: number;
   float: number;
+  breakEven: number;
 }
 
 const MODE_WEIGHTS: Record<OptimizationMode, ScoreWeights> = {
-  low_cost: { ev: 0.15, chance: 0.15, cost: 0.4, risk: 0.1, loss: 0.1, float: 0.1 },
-  balanced: { ev: 0.2, chance: 0.2, cost: 0.2, risk: 0.15, loss: 0.15, float: 0.1 },
-  high_chance: { ev: 0.25, chance: 0.35, cost: 0.1, risk: 0.1, loss: 0.1, float: 0.1 },
-  min_loss: { ev: 0.15, chance: 0.1, cost: 0.1, risk: 0.25, loss: 0.35, float: 0.05 },
+  low_cost: { ev: 0.15, chance: 0.12, cost: 0.35, risk: 0.1, loss: 0.1, float: 0.08, breakEven: 0.1 },
+  balanced: { ev: 0.18, chance: 0.18, cost: 0.18, risk: 0.12, loss: 0.12, float: 0.08, breakEven: 0.14 },
+  high_chance: { ev: 0.22, chance: 0.3, cost: 0.08, risk: 0.08, loss: 0.08, float: 0.08, breakEven: 0.16 },
+  min_loss: { ev: 0.12, chance: 0.08, cost: 0.08, risk: 0.22, loss: 0.32, float: 0.05, breakEven: 0.13 },
 };
 
 export interface ContractScoreInput {
@@ -41,6 +42,9 @@ export function calculateContractScore(
   const roi = input.totalCost > 0 ? (ev - input.totalCost) / input.totalCost : 0;
   const lossOutputs = input.outputs.filter((o) => o.price < input.totalCost);
   const lossProb = lossOutputs.reduce((s, o) => s + o.probability, 0);
+  const breakEvenChance = input.outputs
+    .filter((o) => o.price >= input.totalCost)
+    .reduce((s, o) => s + o.probability, 0);
   const avgLoss = lossOutputs.length > 0
     ? lossOutputs.reduce((s, o) => s + o.probability * (input.totalCost - o.price), 0) / (lossProb || 1)
     : 0;
@@ -58,13 +62,15 @@ export function calculateContractScore(
   const normCost = 1 - Math.min(input.totalCost / (input.budget || 1), 1.5) / 1.5;
   const normRisk = 1 - Math.min(lossProb, 1);
   const normLoss = 1 - Math.min(avgLoss / (input.totalCost || 1), 1);
+  const normBreakEven = Math.min(breakEvenChance * 2, 1);
 
   const raw =
     weights.ev * normEv +
     weights.chance * normChance +
     weights.cost * normCost +
     weights.risk * normRisk +
-    weights.loss * normLoss -
+    weights.loss * normLoss +
+    weights.breakEven * normBreakEven -
     weights.float * floatPenalty -
     weights.cost * budgetPenalty;
 

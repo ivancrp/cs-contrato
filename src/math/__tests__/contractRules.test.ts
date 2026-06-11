@@ -52,4 +52,50 @@ describe('validateContractInputs', () => {
     expect(result.valid).toBe(false);
     expect(result.reason).toContain('restricted');
   });
+
+  it('rejeita entradas normais quando a saída alvo é StatTrak', () => {
+    const inputs = [
+      ...Array.from({ length: 5 }, () => makeInput('rev-glock-vogue-st', 'restricted', true)),
+      ...Array.from({ length: 5 }, () => makeInput('rev-glock-vogue', 'restricted', false)),
+    ];
+
+    const result = validateContractInputs(inputs, target);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('StatTrak');
+  });
+
+  it('rejeita entradas StatTrak quando a saída alvo é normal', () => {
+    const normalTarget = COLLECTIONS[0].items.find((i) => i.id === 'rev-m4a1s-black-lotus')!;
+    const inputs = Array.from({ length: CONTRACT_INPUT_SIZE }, () =>
+      makeInput('rev-glock-vogue-st', 'restricted', true),
+    );
+
+    const result = validateContractInputs(inputs, normalTarget);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('sem StatTrak');
+  });
+
+  it('rejeita contrato com quantidade diferente de 10', () => {
+    const inputs = Array.from({ length: 9 }, () =>
+      makeInput('rev-glock-vogue-st', 'restricted', true),
+    );
+
+    const result = validateContractInputs(inputs, target);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('10');
+  });
+
+  it('rejeita entradas Souvenir', () => {
+    const inputs = Array.from({ length: CONTRACT_INPUT_SIZE }, () => {
+      const input = makeInput('rev-glock-vogue-st', 'restricted', true);
+      return {
+        ...input,
+        item: { ...input.item, souvenir: true },
+      };
+    });
+
+    const result = validateContractInputs(inputs, target);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('Souvenir');
+  });
 });

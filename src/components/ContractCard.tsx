@@ -10,13 +10,14 @@ import { InputGrid } from './InputGrid';
 
 interface ContractCardProps {
   contract: TradeUpContract;
-  onSimulate: (contract: TradeUpContract) => SimulationResult;
+  onSimulate: (contract: TradeUpContract, iterations?: number) => SimulationResult;
   minLossAnalysis?: MinLossAnalysis;
 }
 
 export function ContractCard({ contract, onSimulate, minLossAnalysis }: ContractCardProps) {
   const [expanded, setExpanded] = useState(false);
   const { evMetrics, floatMetrics } = contract;
+  const otherSkinsChance = Math.max(0, 1 - evMetrics.targetChance);
 
   return (
     <div className={`contract-card card tier-${contract.tier}${expanded ? ' is-expanded' : ''}`}>
@@ -31,7 +32,12 @@ export function ContractCard({ contract, onSimulate, minLossAnalysis }: Contract
       <div className="input-preview">
         <span className="preview-label">
           10 entradas
-          {contract.inputs[0] && ` · ${getItemRarityLabel(contract.inputs[0].item)}`}
+          {contract.inputs[0] && (
+            <>
+              {contract.inputs[0].item.stattrak && ' · StatTrak™'}
+              {` · ${getItemRarityLabel(contract.inputs[0].item)}`}
+            </>
+          )}
         </span>
         <InputGrid inputs={contract.inputs} preview />
       </div>
@@ -44,6 +50,10 @@ export function ContractCard({ contract, onSimulate, minLossAnalysis }: Contract
         <div className="metric">
           <span className="label">Chance Alvo</span>
           <span className="value highlight">{formatPercent(evMetrics.targetChance * 100)}</span>
+        </div>
+        <div className="metric">
+          <span className="label">Outras Saídas</span>
+          <span className="value">{formatPercent(otherSkinsChance * 100)}</span>
         </div>
         <div className="metric">
           <span className="label">EV</span>
@@ -73,10 +83,21 @@ export function ContractCard({ contract, onSimulate, minLossAnalysis }: Contract
           <span className="label">Float Esperado</span>
           <span className="value">{formatFloat(floatMetrics.expectedOutputFloat)}</span>
         </div>
+        <div className="metric">
+          <span className="label">Wear Esperado</span>
+          <span className="value">{floatMetrics.expectedWear}</span>
+        </div>
+        <div className="metric">
+          <span className="label">Break-even</span>
+          <span className={`value ${evMetrics.isBreakEven ? 'positive' : ''}`}>
+            {formatPercent(evMetrics.breakEvenChance * 100)}
+          </span>
+        </div>
       </div>
 
       <div className="ev-details">
         <span>Margem: {formatPercent(evMetrics.marginPercent)}</span>
+        {evMetrics.isBreakEven && <span className="break-even-tag">EV = Custo</span>}
         <span>Perda máx: {formatCurrency(evMetrics.maxLoss)}</span>
         <span>Perda média: {formatCurrency(evMetrics.averageLoss)}</span>
         <span>Ganho médio: {formatCurrency(evMetrics.averageGain)}</span>
@@ -94,6 +115,11 @@ export function ContractCard({ contract, onSimulate, minLossAnalysis }: Contract
           </div>
           <div className="scenario best">
             <strong>Melhor cenário:</strong> {minLossAnalysis.bestCase.skin} — Ganho: {formatCurrency(minLossAnalysis.bestCase.gain)}
+          </div>
+          <div className="min-loss-metrics">
+            <span>EV sem alvo: {formatCurrency(minLossAnalysis.nonTargetExpectedValue)}</span>
+            <span>ROI sem alvo: {formatPercent(minLossAnalysis.nonTargetRoi)}</span>
+            <span>Lucro médio sem alvo: {formatCurrency(minLossAnalysis.nonTargetAverageProfit)}</span>
           </div>
         </div>
       )}

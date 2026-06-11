@@ -5,17 +5,24 @@ import { Histogram } from './Histogram';
 
 interface SimulationPanelProps {
   contract: TradeUpContract;
-  onSimulate: (contract: TradeUpContract) => SimulationResult;
+  onSimulate: (contract: TradeUpContract, iterations?: number) => SimulationResult;
 }
+
+const ITERATION_OPTIONS = [
+  { label: '10.000', value: 10_000 },
+  { label: '100.000', value: 100_000 },
+  { label: '1.000.000', value: 1_000_000 },
+] as const;
 
 export function SimulationPanel({ contract, onSimulate }: SimulationPanelProps) {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [running, setRunning] = useState(false);
+  const [iterations, setIterations] = useState<number>(100_000);
 
   const handleSimulate = () => {
     setRunning(true);
     setTimeout(() => {
-      const sim = onSimulate(contract);
+      const sim = onSimulate(contract, iterations);
       setResult(sim);
       setRunning(false);
     }, 100);
@@ -25,17 +32,35 @@ export function SimulationPanel({ contract, onSimulate }: SimulationPanelProps) 
     ? (result.targetObtained / result.iterations) * 100
     : 0;
 
+  const breakEvenRate = result
+    ? (result.breakEvenCount / result.iterations) * 100
+    : 0;
+
   return (
     <div className="simulation-panel card">
       <h3>Simulação Monte Carlo</h3>
-      <button
-        type="button"
-        className="btn secondary"
-        onClick={handleSimulate}
-        disabled={running}
-      >
-        {running ? 'Simulando...' : 'Simular 100.000 contratos'}
-      </button>
+      <div className="simulation-controls">
+        <label>
+          Iterações
+          <select
+            value={iterations}
+            onChange={(e) => setIterations(Number(e.target.value))}
+            disabled={running}
+          >
+            {ITERATION_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          className="btn secondary"
+          onClick={handleSimulate}
+          disabled={running}
+        >
+          {running ? 'Simulando...' : `Simular ${iterations.toLocaleString('pt-BR')} contratos`}
+        </button>
+      </div>
 
       {result && (
         <div className="sim-results">
@@ -44,6 +69,14 @@ export function SimulationPanel({ contract, onSimulate }: SimulationPanelProps) 
               <span className="label">Skin alvo obtida</span>
               <span className="value">{result.targetObtained.toLocaleString()}</span>
               <span className="sub">{formatPercent(targetRate)}</span>
+            </div>
+            <div className="metric">
+              <span className="label">EV observado</span>
+              <span className="value">{formatCurrency(result.observedEV)}</span>
+            </div>
+            <div className="metric">
+              <span className="label">Break-even</span>
+              <span className="value">{formatPercent(breakEvenRate)}</span>
             </div>
             <div className="metric">
               <span className="label">Lucro médio</span>

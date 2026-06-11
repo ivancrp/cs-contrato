@@ -2,9 +2,10 @@ import {
   buildMinLossContract,
   buildThreeContracts,
   findBestContract,
+  resolveTargetSkin,
 } from '../contracts/contractBuilder';
 import { generateAIRecommendation, type AIRecommendation } from './aiAdvisor';
-import { findSkinByName, getAllSkins } from '../data/collections';
+import { getAllSkins } from '../data/collections';
 import { analyzeMinLossScenario } from '../math/ev';
 import { simulateContracts } from '../simulations/monteCarlo';
 import { db } from '../models/database';
@@ -17,7 +18,7 @@ import type {
 import { normalizeSkinName } from '../utils/format';
 
 export interface TradeUpSearchResult {
-  targetSkin: NonNullable<ReturnType<typeof findSkinByName>>;
+  targetSkin: ReturnType<typeof resolveTargetSkin>;
   collections: string[];
   contracts: TradeUpContract[];
   aiRecommendation: AIRecommendation;
@@ -39,17 +40,15 @@ export class TradeUpService {
       .filter((s) => {
         const matchName = normalizeSkinName(s.name).includes(normalized);
         const matchSt = stattrak === undefined || s.stattrak === stattrak;
-        return matchName && matchSt && s.rarity !== 'consumer' && s.rarity !== 'industrial';
+        const notSouvenir = !s.souvenir;
+        return matchName && matchSt && notSouvenir && s.rarity !== 'consumer' && s.rarity !== 'industrial';
       })
       .slice(0, 15);
   }
 
   /** Gera os 3 contratos otimizados */
   async search(params: TargetSearchParams): Promise<TradeUpSearchResult> {
-    const targetSkin = findSkinByName(params.skinName, params.stattrak);
-    if (!targetSkin) {
-      throw new Error(`Skin alvo não encontrada: ${params.skinName}`);
-    }
+    const targetSkin = resolveTargetSkin(params);
 
     const contracts = await buildThreeContracts(params);
 

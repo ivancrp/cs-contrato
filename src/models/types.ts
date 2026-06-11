@@ -45,6 +45,8 @@ export interface SkinItem {
   minFloat: number;
   maxFloat: number;
   stattrak: boolean;
+  /** Souvenir não pode entrar em trade up */
+  souvenir?: boolean;
   imageUrl?: string;
 }
 
@@ -65,6 +67,7 @@ export interface MarketListing {
   float: number;
   wear: WearTier;
   stattrak: boolean;
+  souvenir?: boolean;
 }
 
 export interface PriceQuote {
@@ -105,12 +108,17 @@ export interface EVMetrics {
   averageLoss: number;
   averageGain: number;
   targetChance: number;
+  /** Probabilidade de saída com preço >= custo (lucro ou break-even) */
+  breakEvenChance: number;
+  /** EV igual ao custo (margem zero) */
+  isBreakEven: boolean;
   riskScore: number;
 }
 
 export interface FloatMetrics {
   averageInputFloat: number;
   expectedOutputFloat: number;
+  expectedWear: WearTier;
   minPossibleFloat: number;
   maxPossibleFloat: number;
 }
@@ -145,6 +153,10 @@ export interface SimulationResult {
   outputCounts: Record<string, number>;
   averageProfit: number;
   averageLoss: number;
+  /** EV observado na simulação: Σ(freq × preço) */
+  observedEV: number;
+  /** Contratos com lucro >= 0 */
+  breakEvenCount: number;
   profitDistribution: { bucket: string; count: number }[];
   histogram: { range: string; count: number; percentage?: number }[];
 }
@@ -152,6 +164,10 @@ export interface SimulationResult {
 export interface MinLossAnalysis {
   worstCase: { skin: string; value: number; loss: number };
   bestCase: { skin: string; value: number; gain: number };
+  /** Métricas quando a skin alvo não é obtida */
+  nonTargetExpectedValue: number;
+  nonTargetRoi: number;
+  nonTargetAverageProfit: number;
   nonTargetDistribution: { skin: string; probability: number; price: number }[];
 }
 

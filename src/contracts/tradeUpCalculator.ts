@@ -27,11 +27,10 @@ export function findCollectionsForTarget(targetSkin: SkinItem): Collection[] {
 
 /**
  * Descobre skins de entrada possíveis para atingir a skin alvo.
- * Inclui skins de outras coleções (mix permitido) da mesma raridade de entrada.
+ * Inclui skins de outras coleções (mix permitido) da mesma raridade e versão StatTrak.
  */
 export function findInputCandidates(
   targetSkin: SkinItem,
-  stattrak: boolean,
   maxFloat: number,
 ): SkinItem[] {
   const inputRarity = getInputRarityForTarget(targetSkin.rarity);
@@ -49,8 +48,9 @@ export function findInputCandidates(
   return COLLECTIONS.flatMap((col) =>
     col.items.filter(
       (item) =>
+        !item.souvenir &&
         item.rarity === inputRarity &&
-        item.stattrak === stattrak &&
+        item.stattrak === targetSkin.stattrak &&
         item.minFloat <= maxInputFloat,
     ),
   ).map((item) => ({
@@ -150,6 +150,7 @@ export async function calculateContract(
     floatMetrics: {
       averageInputFloat: floatMetrics.averageInputFloat,
       expectedOutputFloat: floatMetrics.expectedOutputFloat,
+      expectedWear: floatMetrics.expectedWear,
       minPossibleFloat: floatMetrics.minPossibleFloat,
       maxPossibleFloat: floatMetrics.maxPossibleFloat,
     },

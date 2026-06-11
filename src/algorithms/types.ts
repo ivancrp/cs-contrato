@@ -5,6 +5,7 @@ export interface CandidateListing {
   itemId: string;
   collectionId: string;
   rarity: Rarity;
+  stattrak: boolean;
   price: number;
   float: number;
   isTargetCollection: boolean;

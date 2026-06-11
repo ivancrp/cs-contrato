@@ -12,8 +12,9 @@ export function simulateContracts(
   let targetObtained = 0;
   let totalProfit = 0;
   let totalLoss = 0;
+  let totalOutputValue = 0;
   let lossCount = 0;
-  let gainCount = 0;
+  let breakEvenCount = 0;
   const profitBuckets = new Map<string, number>();
 
   const outputs = contract.outputs;
@@ -33,17 +34,20 @@ export function simulateContracts(
 
     const name = output.item.name;
     outputCounts[name] = (outputCounts[name] ?? 0) + 1;
+    totalOutputValue += output.price;
 
     if (output.isTarget) targetObtained++;
 
     const profit = output.price - cost;
     totalProfit += profit;
 
+    if (profit >= 0) {
+      breakEvenCount++;
+    }
+
     if (profit < 0) {
       totalLoss += Math.abs(profit);
       lossCount++;
-    } else {
-      gainCount++;
     }
 
     const bucket = getProfitBucket(profit);
@@ -62,6 +66,8 @@ export function simulateContracts(
     outputCounts,
     averageProfit: totalProfit / iterations,
     averageLoss: lossCount > 0 ? totalLoss / lossCount : 0,
+    observedEV: totalOutputValue / iterations,
+    breakEvenCount,
     profitDistribution,
     histogram,
   };

@@ -17,6 +17,7 @@ export function InputGrid({ inputs, preview = false }: InputGridProps) {
         <div key={i} className="input-grid-item">
           <div className="input-grid-header">
             <span className="input-grid-name" title={input.item.name}>
+              {input.item.stattrak && <span className="st-badge">ST</span>}
               {input.item.name}
             </span>
             <span className="input-grid-wear">({input.listing.wear})</span>

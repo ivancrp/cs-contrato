@@ -28,11 +28,19 @@ describe('calculateEV', () => {
 });
 
 describe('calculateEVMetrics', () => {
-  it('calcula ROI e chance alvo', () => {
+  it('calcula ROI, chance alvo e break-even', () => {
     const metrics = calculateEVMetrics(outputs, 70, 'a');
     expect(metrics.expectedValue).toBe(80);
     expect(metrics.expectedProfit).toBe(10);
     expect(metrics.targetChance).toBe(0.5);
+    expect(metrics.breakEvenChance).toBe(0.5);
+    expect(metrics.isBreakEven).toBe(false);
     expect(metrics.roi).toBeCloseTo(14.29, 1);
+  });
+
+  it('identifica break-even quando EV igual ao custo', () => {
+    const metrics = calculateEVMetrics(outputs, 80, 'a');
+    expect(metrics.isBreakEven).toBe(true);
+    expect(metrics.expectedProfit).toBe(0);
   });
 });

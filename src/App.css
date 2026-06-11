@@ -437,6 +437,11 @@ input:focus, select:focus {
   white-space: nowrap;
 }
 
+.input-grid-name .st-badge {
+  margin-right: 0.2rem;
+  vertical-align: middle;
+}
+
 .input-grid-wear {
   display: block;
   font-size: 0.58rem;
@@ -747,8 +752,48 @@ input:focus, select:focus {
 .scenario.worst { color: var(--danger); }
 .scenario.best { color: var(--success); }
 
+.min-loss-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.break-even-tag {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.output-card-meta {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
 .simulation-panel {
   margin-top: 1rem;
+}
+
+.simulation-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.simulation-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.simulation-controls select {
+  min-width: 120px;
 }
 
 .sim-results {

@@ -45,6 +45,12 @@ export function calculateEVMetrics(
   const averageLoss = lossProb > 0 ? weightedLoss / lossProb : 0;
   const averageGain = gainProb > 0 ? weightedGain / gainProb : 0;
 
+  const breakEvenChance = outputs
+    .filter((o) => o.price >= totalCost)
+    .reduce((sum, o) => sum + o.probability, 0);
+
+  const isBreakEven = Math.abs(expectedValue - totalCost) < 0.01;
+
   const riskScore = calculateRiskScore(outputs, totalCost, targetChance);
 
   return {
@@ -57,6 +63,8 @@ export function calculateEVMetrics(
     averageLoss,
     averageGain,
     targetChance,
+    breakEvenChance,
+    isBreakEven,
     riskScore,
   };
 }
@@ -100,6 +108,9 @@ export function analyzeMinLossScenario(
     return {
       worstCase: { skin: '-', value: 0, loss: totalCost },
       bestCase: { skin: '-', value: 0, gain: -totalCost },
+      nonTargetExpectedValue: 0,
+      nonTargetRoi: -100,
+      nonTargetAverageProfit: -totalCost,
       nonTargetDistribution: [],
     };
   }
@@ -109,6 +120,12 @@ export function analyzeMinLossScenario(
   const best = sorted[sorted.length - 1];
 
   const totalNonTargetProb = nonTarget.reduce((s, o) => s + o.probability, 0);
+  const nonTargetExpectedValue = nonTarget.reduce(
+    (sum, o) => sum + o.probability * o.price,
+    0,
+  ) / (totalNonTargetProb || 1);
+  const nonTargetAverageProfit = nonTargetExpectedValue - totalCost;
+  const nonTargetRoi = totalCost > 0 ? (nonTargetAverageProfit / totalCost) * 100 : 0;
 
   return {
     worstCase: {
@@ -121,6 +138,9 @@ export function analyzeMinLossScenario(
       value: best.price,
       gain: best.price - totalCost,
     },
+    nonTargetExpectedValue,
+    nonTargetRoi,
+    nonTargetAverageProfit,
     nonTargetDistribution: nonTarget.map((o) => ({
       skin: o.item.name,
       probability: totalNonTargetProb > 0
