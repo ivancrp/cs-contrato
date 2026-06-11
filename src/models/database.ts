@@ -1,4 +1,4 @@
-import { COLLECTIONS, getAllSkins } from '../data/collections';
+import { getAllSkins, getCollections } from '../data/collections';
 import type {
   ContractHistoryEntry,
   DatabaseSchema,
@@ -29,7 +29,7 @@ export class Database {
       // fallback to default
     }
     return {
-      collections: COLLECTIONS,
+      collections: getCollections(),
       items: getAllSkins(),
       prices: [],
       contracts: [],

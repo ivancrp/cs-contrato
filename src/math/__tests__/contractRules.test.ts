@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { COLLECTIONS, findSkinByName } from '../../data/collections';
+import { findSkinByName } from '../../data/collections';
 import { validateContractInputs, CONTRACT_INPUT_SIZE } from '../contractRules';
 import type { ContractInput, SkinItem } from '../../models/types';
 

@@ -5,7 +5,7 @@ import {
   resolveTargetSkin,
 } from '../contracts/contractBuilder';
 import { generateAIRecommendation, type AIRecommendation } from './aiAdvisor';
-import { getAllSkins } from '../data/collections';
+import { getAllSkins, refreshCatalog } from '../data/collections';
 import { analyzeMinLossScenario } from '../math/ev';
 import { simulateContracts } from '../simulations/monteCarlo';
 import { db } from '../models/database';
@@ -48,6 +48,7 @@ export class TradeUpService {
 
   /** Gera os 3 contratos otimizados */
   async search(params: TargetSearchParams): Promise<TradeUpSearchResult> {
+    await refreshCatalog();
     const targetSkin = resolveTargetSkin(params);
 
     const contracts = await buildThreeContracts(params);
@@ -84,6 +85,7 @@ export class TradeUpService {
 
   /** Encontra melhor contrato via IA */
   async findBest(params: TargetSearchParams): Promise<TradeUpContract> {
+    await refreshCatalog();
     return findBestContract(params);
   }
 

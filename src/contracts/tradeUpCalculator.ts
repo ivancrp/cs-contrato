@@ -1,4 +1,4 @@
-import { COLLECTIONS } from '../data/collections';
+import { getCollections } from '../data/collections';
 import { calculateEVMetrics } from '../math/ev';
 import { calculateFloatMetrics } from '../math/float';
 import { calculateExpectedFloatForOutput } from '../math/float';
@@ -20,7 +20,7 @@ import { getRarityLabel } from '../utils/rarity';
  * Encontra todas as coleções que contêm a skin alvo.
  */
 export function findCollectionsForTarget(targetSkin: SkinItem): Collection[] {
-  return COLLECTIONS.filter((col) =>
+  return getCollections().filter((col) =>
     col.items.some((item) => item.id === targetSkin.id),
   );
 }
@@ -45,7 +45,7 @@ export function findInputCandidates(
     targetSkin.maxFloat,
   );
 
-  return COLLECTIONS.flatMap((col) =>
+  return getCollections().flatMap((col) =>
     col.items.filter(
       (item) =>
         !item.souvenir &&
@@ -88,7 +88,7 @@ export async function calculateContract(
       const result = priceLookup(itemId, expectedFloat);
       return result instanceof Promise ? result : result;
     }
-    const item = COLLECTIONS.flatMap((c) => c.items).find((i) => i.id === itemId);
+    const item = getCollections().flatMap((c) => c.items).find((i) => i.id === itemId);
     if (!item) return 0;
     const price = await priceService.getOutputPrice(
       item.name,
@@ -101,14 +101,14 @@ export async function calculateContract(
 
   const probabilities = calculateOutputProbabilities(
     inputs,
-    COLLECTIONS,
+    getCollections(),
     targetSkin.rarity,
     targetSkin.stattrak,
   );
 
   const priceCache = new Map<string, number>();
   for (const skinId of probabilities.keys()) {
-    const item = COLLECTIONS.flatMap((c) => c.items).find((i) => i.id === skinId);
+    const item = getCollections().flatMap((c) => c.items).find((i) => i.id === skinId);
     if (!item) continue;
     const expectedFloat = calculateExpectedFloatForOutput(inputs, item);
     const key = `${skinId}-${expectedFloat.toFixed(4)}`;
@@ -118,14 +118,14 @@ export async function calculateContract(
   const priceLookupSync = (itemId: string, expectedFloat: number): number => {
     const key = `${itemId}-${expectedFloat.toFixed(4)}`;
     if (priceCache.has(key)) return priceCache.get(key)!;
-    const item = COLLECTIONS.flatMap((c) => c.items).find((i) => i.id === itemId);
+    const item = getCollections().flatMap((c) => c.items).find((i) => i.id === itemId);
     if (!item) return 0;
     return priceService.getFallbackPrice(item.rarity, expectedFloat, item.stattrak);
   };
 
   const outputs = buildContractOutputs(
     inputs,
-    COLLECTIONS,
+    getCollections(),
     targetSkin.rarity,
     targetSkin.stattrak,
     targetSkin.id,
@@ -137,7 +137,7 @@ export async function calculateContract(
   const evMetrics = calculateEVMetrics(outputs, totalCost, targetSkin.id);
 
   const collectionsUsed = [...new Set(inputs.map((i) => i.item.collectionId))].map((id) => {
-    const col = COLLECTIONS.find((c) => c.id === id);
+    const col = getCollections().find((c) => c.id === id);
     return col?.name ?? id;
   });
 
@@ -162,7 +162,7 @@ export async function calculateContract(
 }
 
 export function getCollectionName(collectionId: string): string {
-  return COLLECTIONS.find((c) => c.id === collectionId)?.name ?? collectionId;
+  return getCollections().find((c) => c.id === collectionId)?.name ?? collectionId;
 }
 
 export function getItemRarityLabel(item: SkinItem): string {

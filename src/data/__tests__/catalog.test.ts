@@ -9,6 +9,13 @@ describe('catalog', () => {
     expect(skin?.rarity).toBe('mil-spec');
   });
 
+  it('MAC-10 | Ensnared (Dreams & Nightmares) é Mil-Spec, não Restricted', () => {
+    const skin = findSkinByName('MAC-10 | Ensnared', false);
+    expect(skin).toBeDefined();
+    expect(skin?.collectionId).toBe('dreams-nightmares');
+    expect(skin?.rarity).toBe('mil-spec');
+  });
+
   it('não duplica Nova | Dark Sigil na Revolution', () => {
     const matches = getAllSkins().filter(
       (skin) => skin.name === 'Nova | Dark Sigil' && skin.stattrak,

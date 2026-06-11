@@ -38,13 +38,13 @@ async function migrate(): Promise<void> {
     await sql.query(statement);
   }
 
-  const tables = await sql<{ tablename: string }[]>`
+  const tables = (await sql`
     SELECT tablename
     FROM pg_tables
     WHERE schemaname = 'public'
       AND tablename IN ('collections', 'skins')
     ORDER BY tablename
-  `;
+  `) as { tablename: string }[];
 
   console.log('Migration concluída.');
   console.log('Tabelas:', tables.map((t) => t.tablename).join(', '));

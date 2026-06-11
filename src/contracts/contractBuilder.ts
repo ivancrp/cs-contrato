@@ -1,7 +1,7 @@
 import { optimizeContract, optimizeThreeTiers } from '../algorithms/optimizer';
 import { calculateContractScore, scoreToStars } from '../algorithms/scoring';
 import type { CandidateListing, Combination, EvaluationContext } from '../algorithms/types';
-import { COLLECTIONS, findSkinByName } from '../data/collections';
+import { findSkinByName, getCollections } from '../data/collections';
 import { buildContractOutputs } from '../math/probability';
 import { getInputRarityForTarget } from '../math/probability';
 import { calculateFloatMetrics } from '../math/float';
@@ -104,7 +104,7 @@ export function combinationToInputs(
   marketplace: TargetSearchParams['marketplace'],
 ): ContractInput[] {
   const itemMap = new Map(
-    COLLECTIONS.flatMap((c) => c.items).map((i) => [i.id, i]),
+    getCollections().flatMap((c) => c.items).map((i) => [i.id, i]),
   );
 
   return combination.map((idx) => {
@@ -142,7 +142,7 @@ async function createPriceLookup(marketplace: TargetSearchParams['marketplace'])
   await priceService.preload();
 
   return async (itemId: string, expectedFloat: number): Promise<number> => {
-    const item = COLLECTIONS.flatMap((c) => c.items).find((i) => i.id === itemId);
+    const item = getCollections().flatMap((c) => c.items).find((i) => i.id === itemId);
     if (!item) return 0;
 
     const price = await priceService.getOutputPrice(
@@ -171,7 +171,7 @@ export async function createEvaluationContext(
   const syncPriceLookup = (itemId: string, expectedFloat: number): number => {
     const key = `${itemId}-${expectedFloat.toFixed(4)}`;
     if (!priceCache.has(key)) {
-      const item = COLLECTIONS.flatMap((c) => c.items).find((i) => i.id === itemId);
+      const item = getCollections().flatMap((c) => c.items).find((i) => i.id === itemId);
       if (!item) {
         priceCache.set(key, 0);
       } else {
@@ -185,7 +185,7 @@ export async function createEvaluationContext(
   };
 
   for (const candidate of candidates.slice(0, 40)) {
-    const item = COLLECTIONS.flatMap((c) => c.items).find((i) => i.id === candidate.itemId);
+    const item = getCollections().flatMap((c) => c.items).find((i) => i.id === candidate.itemId);
     if (item) {
       const key = `${item.id}-${candidate.float.toFixed(4)}`;
       const price = await priceLookup(item.id, candidate.float);
@@ -193,7 +193,7 @@ export async function createEvaluationContext(
     }
   }
 
-  const outputItems = COLLECTIONS.flatMap((c) => c.items).filter(
+  const outputItems = getCollections().flatMap((c) => c.items).filter(
     (i) => i.rarity === targetSkin.rarity && i.stattrak === targetSkin.stattrak,
   );
   for (const item of outputItems) {
@@ -231,7 +231,7 @@ export async function createEvaluationContext(
 
       const outputs = buildContractOutputs(
         inputs,
-        COLLECTIONS,
+        getCollections(),
         targetSkin.rarity,
         targetSkin.stattrak,
         targetSkin.id,

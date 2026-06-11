@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { calculateOutputProbabilities } from '../probability';
 import type { ContractInput } from '../../models/types';
-import { COLLECTIONS, findSkinByName } from '../../data/collections';
+import { getCollections, findSkinByName } from '../../data/collections';
 
 function requireSkin(name: string, stattrak: boolean) {
   const skin = findSkinByName(name, stattrak);
@@ -10,7 +10,7 @@ function requireSkin(name: string, stattrak: boolean) {
 }
 
 function getCollection(id: string) {
-  const collection = COLLECTIONS.find((entry) => entry.id === id);
+  const collection = getCollections().find((entry) => entry.id === id);
   if (!collection) throw new Error(`Coleção não encontrada: ${id}`);
   return collection;
 }
@@ -39,7 +39,7 @@ describe('calculateOutputProbabilities', () => {
     )!;
     const inputs = Array.from({ length: 10 }, () => makeInput(restricted));
 
-    const probs = calculateOutputProbabilities(inputs, COLLECTIONS, 'classified', false);
+    const probs = calculateOutputProbabilities(inputs, getCollections(), 'classified', false);
     const total = [...probs.values()].reduce((sum, probability) => sum + probability, 0);
     expect(total).toBeCloseTo(1, 4);
   });
@@ -57,7 +57,7 @@ describe('calculateOutputProbabilities', () => {
       ...Array.from({ length: 5 }, () => makeInput(milSpec)),
     ];
 
-    const probs = calculateOutputProbabilities(inputs, COLLECTIONS, 'classified', false);
+    const probs = calculateOutputProbabilities(inputs, getCollections(), 'classified', false);
     expect(probs.size).toBe(0);
   });
 
@@ -65,7 +65,7 @@ describe('calculateOutputProbabilities', () => {
     const restrictedSt = requireSkin('Glock-18 | Umbral Rabbit', true);
     const inputs = Array.from({ length: 10 }, () => makeInput(restrictedSt));
 
-    const probs = calculateOutputProbabilities(inputs, COLLECTIONS, 'classified', false);
+    const probs = calculateOutputProbabilities(inputs, getCollections(), 'classified', false);
     expect(probs.size).toBe(0);
   });
 
@@ -82,7 +82,7 @@ describe('calculateOutputProbabilities', () => {
       ...Array.from({ length: 2 }, () => makeInput(recRestricted)),
     ];
 
-    const probs = calculateOutputProbabilities(inputs, COLLECTIONS, 'classified', false);
+    const probs = calculateOutputProbabilities(inputs, getCollections(), 'classified', false);
     const revOutputs = getCollection('revolution').items.filter(
       (item) => item.rarity === 'classified' && !item.stattrak,
     );

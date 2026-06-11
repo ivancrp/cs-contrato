@@ -3,6 +3,7 @@ import { AIRecommendation } from './components/AIRecommendation';
 import { priceService } from './services/priceService';
 import { skinImageService } from './services/skinImageService';
 import { skinMetadataService } from './services/skinMetadataService';
+import { catalogStore } from './data/catalogStore';
 import { InspectButton } from './components/InspectButton';
 import { ContractCard } from './components/ContractCard';
 import { ContractComparison } from './components/ContractComparison';
@@ -15,6 +16,7 @@ import './App.css';
 
 function App() {
   useEffect(() => {
+    catalogStore.refresh();
     skinImageService.preload();
     skinMetadataService.preload();
     priceService.preload();
