@@ -1,32 +1,40 @@
 import { describe, it, expect } from 'vitest';
-import { COLLECTIONS } from '../../data/collections';
+import { COLLECTIONS, findSkinByName } from '../../data/collections';
 import { validateContractInputs, CONTRACT_INPUT_SIZE } from '../contractRules';
-import type { ContractInput } from '../../models/types';
+import type { ContractInput, SkinItem } from '../../models/types';
 
-function makeInput(itemId: string, rarity: ContractInput['item']['rarity'], stattrak = false): ContractInput {
-  const item = COLLECTIONS.flatMap((c) => c.items).find((i) => i.id === itemId)!;
+function requireSkin(name: string, stattrak: boolean): SkinItem {
+  const skin = findSkinByName(name, stattrak);
+  if (!skin) throw new Error(`Skin não encontrada no catálogo: ${name} (ST=${stattrak})`);
+  return skin;
+}
+
+function makeInput(item: SkinItem, overrides?: Partial<SkinItem>): ContractInput {
+  const resolved = { ...item, ...overrides };
   return {
     listing: {
-      id: `${itemId}-listing`,
-      itemId,
-      marketHashName: item.name,
+      id: `${resolved.id}-listing`,
+      itemId: resolved.id,
+      marketHashName: resolved.name,
       marketplace: 'csfloat',
       price: 10,
       currency: 'BRL',
       float: 0.05,
       wear: 'Factory New',
-      stattrak,
+      stattrak: resolved.stattrak,
     },
-    item: { ...item, rarity, stattrak },
+    item: resolved,
   };
 }
 
 describe('validateContractInputs', () => {
-  const target = COLLECTIONS[0].items.find((i) => i.id === 'rev-m4a1s-black-lotus-st')!;
+  const target = requireSkin('M4A1-S | Black Lotus', true);
+  const restrictedInput = requireSkin('M4A4 | Etch Lord', true);
+  const milSpecInput = requireSkin('Nova | Dark Sigil', true);
 
   it('aceita 10 entradas da mesma raridade exigida', () => {
     const inputs = Array.from({ length: CONTRACT_INPUT_SIZE }, () =>
-      makeInput('rev-glock-vogue-st', 'restricted', true),
+      makeInput(restrictedInput),
     );
 
     expect(validateContractInputs(inputs, target)).toEqual({ valid: true });
@@ -34,8 +42,8 @@ describe('validateContractInputs', () => {
 
   it('rejeita entradas com raridades misturadas', () => {
     const inputs = [
-      ...Array.from({ length: 5 }, () => makeInput('rev-glock-vogue-st', 'restricted', true)),
-      ...Array.from({ length: 5 }, () => makeInput('rev-ump45-motorized', 'mil-spec', true)),
+      ...Array.from({ length: 5 }, () => makeInput(restrictedInput)),
+      ...Array.from({ length: 5 }, () => makeInput(milSpecInput)),
     ];
 
     const result = validateContractInputs(inputs, target);
@@ -44,9 +52,7 @@ describe('validateContractInputs', () => {
   });
 
   it('rejeita entradas com raridade acima do tier exigido', () => {
-    const inputs = Array.from({ length: CONTRACT_INPUT_SIZE }, () =>
-      makeInput('rev-m4a1s-black-lotus-st', 'classified', true),
-    );
+    const inputs = Array.from({ length: CONTRACT_INPUT_SIZE }, () => makeInput(target));
 
     const result = validateContractInputs(inputs, target);
     expect(result.valid).toBe(false);
@@ -54,9 +60,10 @@ describe('validateContractInputs', () => {
   });
 
   it('rejeita entradas normais quando a saída alvo é StatTrak', () => {
+    const normalInput = requireSkin('M4A4 | Etch Lord', false);
     const inputs = [
-      ...Array.from({ length: 5 }, () => makeInput('rev-glock-vogue-st', 'restricted', true)),
-      ...Array.from({ length: 5 }, () => makeInput('rev-glock-vogue', 'restricted', false)),
+      ...Array.from({ length: 5 }, () => makeInput(restrictedInput)),
+      ...Array.from({ length: 5 }, () => makeInput(normalInput)),
     ];
 
     const result = validateContractInputs(inputs, target);
@@ -65,9 +72,9 @@ describe('validateContractInputs', () => {
   });
 
   it('rejeita entradas StatTrak quando a saída alvo é normal', () => {
-    const normalTarget = COLLECTIONS[0].items.find((i) => i.id === 'rev-m4a1s-black-lotus')!;
+    const normalTarget = requireSkin('M4A1-S | Black Lotus', false);
     const inputs = Array.from({ length: CONTRACT_INPUT_SIZE }, () =>
-      makeInput('rev-glock-vogue-st', 'restricted', true),
+      makeInput(restrictedInput),
     );
 
     const result = validateContractInputs(inputs, normalTarget);
@@ -76,9 +83,7 @@ describe('validateContractInputs', () => {
   });
 
   it('rejeita contrato com quantidade diferente de 10', () => {
-    const inputs = Array.from({ length: 9 }, () =>
-      makeInput('rev-glock-vogue-st', 'restricted', true),
-    );
+    const inputs = Array.from({ length: 9 }, () => makeInput(restrictedInput));
 
     const result = validateContractInputs(inputs, target);
     expect(result.valid).toBe(false);
@@ -86,13 +91,9 @@ describe('validateContractInputs', () => {
   });
 
   it('rejeita entradas Souvenir', () => {
-    const inputs = Array.from({ length: CONTRACT_INPUT_SIZE }, () => {
-      const input = makeInput('rev-glock-vogue-st', 'restricted', true);
-      return {
-        ...input,
-        item: { ...input.item, souvenir: true },
-      };
-    });
+    const inputs = Array.from({ length: CONTRACT_INPUT_SIZE }, () =>
+      makeInput(restrictedInput, { souvenir: true }),
+    );
 
     const result = validateContractInputs(inputs, target);
     expect(result.valid).toBe(false);

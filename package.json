@@ -9,10 +9,15 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:migrate": "tsx scripts/db/migrate.ts",
+    "db:seed": "tsx scripts/db/seed-skins.ts",
+    "catalog:sync": "tsx scripts/sync-catalog.ts"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
     "@vlydev/cs2-masked-inspect-ts": "^1.1.6",
+    "dotenv": "^17.2.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.15.0"
@@ -22,6 +27,7 @@
     "@types/node": "^25.9.3",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "^2.1.8",
     "eslint": "^9.17.0",
@@ -30,8 +36,10 @@
     "globals": "^15.14.0",
     "jsdom": "^25.0.1",
     "typescript": "~5.6.2",
+    "tsx": "^4.20.6",
     "typescript-eslint": "^8.18.2",
     "vite": "^5.4.11",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "ws": "^8.18.3"
   }
 }
