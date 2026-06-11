@@ -30,6 +30,11 @@ export function isFloatInWear(float: number, wear: WearTier): boolean {
   return floatToWear(float) === wear;
 }
 
+/** Float máximo automático a partir do wear desejado. */
+export function wearToMaxFloat(wear: WearTier): number {
+  return WEAR_BOUNDS[wear].max;
+}
+
 /**
  * Calcula o float máximo de entrada necessário para atingir um float de saída alvo.
  * Derivado da fórmula oficial invertida.

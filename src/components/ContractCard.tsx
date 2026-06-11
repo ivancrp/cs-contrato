@@ -44,12 +44,18 @@ export function ContractCard({ contract, onSimulate, minLossAnalysis }: Contract
 
       <div className="metrics-grid">
         <div className="metric">
-          <span className="label">Preço Total</span>
+          <span className="label">Custo Total</span>
           <span className="value">{formatCurrency(evMetrics.totalCost)}</span>
         </div>
         <div className="metric">
+          <span className="label">Chance de Lucro</span>
+          <span className={`value highlight ${evMetrics.breakEvenChance >= 0.5 ? 'positive' : ''}`}>
+            {formatPercent(evMetrics.breakEvenChance * 100)}
+          </span>
+        </div>
+        <div className="metric">
           <span className="label">Chance Alvo</span>
-          <span className="value highlight">{formatPercent(evMetrics.targetChance * 100)}</span>
+          <span className="value">{formatPercent(evMetrics.targetChance * 100)}</span>
         </div>
         <div className="metric">
           <span className="label">Outras Saídas</span>

@@ -1,5 +1,6 @@
+import { getCollections } from '../data/collections';
 import type { ContractInput, Rarity, SkinItem } from '../models/types';
-import { getInputRarityForTarget } from './probability';
+import { collectionHasTradeUpOutput, getInputRarityForTarget, isValidTradeUpInput } from './probability';
 
 export const CONTRACT_INPUT_SIZE = 10;
 
@@ -8,7 +9,7 @@ export interface ContractValidationResult {
   reason?: string;
 }
 
-function hasSouvenir(input: ContractInput): boolean {
+function isSouvenirInput(input: ContractInput): boolean {
   return !!(input.item.souvenir || input.listing.souvenir);
 }
 
@@ -18,7 +19,8 @@ function hasSouvenir(input: ContractInput): boolean {
  * - mesma raridade entre todas
  * - raridade um tier abaixo da skin alvo
  * - mesma versão StatTrak
- * - sem Souvenir
+ * - mesma versão Souvenir (todas Souvenir ou todas normais)
+ * - cada coleção das entradas deve ter saída no tier alvo
  */
 export function validateContractInputs(
   inputs: ContractInput[],
@@ -31,10 +33,21 @@ export function validateContractInputs(
     };
   }
 
-  if (inputs.some(hasSouvenir)) {
+  const souvenirValues = new Set(inputs.map(isSouvenirInput));
+  if (souvenirValues.size !== 1) {
     return {
       valid: false,
-      reason: 'Souvenir não pode ser utilizado em Trade Up.',
+      reason: 'Todas as entradas devem ser Souvenir ou todas normais.',
+    };
+  }
+
+  const [inputSouvenir] = [...souvenirValues];
+  if (inputSouvenir !== !!targetSkin.souvenir) {
+    return {
+      valid: false,
+      reason: targetSkin.souvenir
+        ? 'Saída Souvenir exige 10 entradas Souvenir.'
+        : 'Saída normal exige 10 entradas sem Souvenir.',
     };
   }
 
@@ -87,6 +100,34 @@ export function validateContractInputs(
     };
   }
 
+  const collections = getCollections();
+  const collectionIds = new Set(inputs.map((input) => input.item.collectionId));
+  for (const collectionId of collectionIds) {
+    const collection = collections.find((entry) => entry.id === collectionId);
+    if (!collection) continue;
+
+    if (
+      !collectionHasTradeUpOutput(
+        collection,
+        targetSkin.rarity,
+        targetSkin.stattrak,
+        !!targetSkin.souvenir,
+      )
+    ) {
+      return {
+        valid: false,
+        reason: `Coleção "${collection.name}" não possui saída ${targetSkin.rarity} para trade up.`,
+      };
+    }
+  }
+
+  if (inputs.some((input) => !isValidTradeUpInput(input.item, targetSkin, collections))) {
+    return {
+      valid: false,
+      reason: 'Uma ou mais entradas pertencem a coleção sem tier superior válido.',
+    };
+  }
+
   return { valid: true };
 }
 
@@ -104,18 +145,18 @@ export function getRequiredInputRarity(targetSkin: SkinItem): Rarity | null {
   return getInputRarityForTarget(targetSkin.rarity);
 }
 
-/** Skin alvo válida: possui raridade inferior com entradas disponíveis no catálogo. */
+/** Skin alvo válida: possui entradas no tier inferior com trade up real na coleção. */
 export function canBeTradeUpTarget(skin: SkinItem, inputPool: SkinItem[]): boolean {
-  if (skin.souvenir) return false;
-
   const requiredInputRarity = getInputRarityForTarget(skin.rarity);
   if (!requiredInputRarity) return false;
 
+  const collections = getCollections();
   return inputPool.some(
     (item) =>
-      !item.souvenir &&
       item.rarity === requiredInputRarity &&
-      item.stattrak === skin.stattrak,
+      item.stattrak === skin.stattrak &&
+      !!item.souvenir === !!skin.souvenir &&
+      isValidTradeUpInput(item, skin, collections),
   );
 }
 

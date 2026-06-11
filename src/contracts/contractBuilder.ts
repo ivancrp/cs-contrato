@@ -2,8 +2,7 @@ import { optimizeContract, optimizeThreeTiers } from '../algorithms/optimizer';
 import { calculateContractScore, scoreToStars } from '../algorithms/scoring';
 import type { CandidateListing, Combination, EvaluationContext } from '../algorithms/types';
 import { findSkinById, findSkinByName, getCollections } from '../data/collections';
-import { buildContractOutputs } from '../math/probability';
-import { getInputRarityForTarget } from '../math/probability';
+import { buildContractOutputs, getInputRarityForTarget } from '../math/probability';
 import { calculateFloatMetrics } from '../math/float';
 import { validateContractInputs, assertValidContractInputs } from '../math/contractRules';
 import type {
@@ -16,7 +15,7 @@ import type {
 } from '../models/types';
 import { priceService } from '../services/priceService';
 import { buildMarketHashName } from '../utils/format';
-import { floatToWear } from '../math/wear';
+import { floatToWear, wearToMaxFloat } from '../math/wear';
 import { calculateContract, findCollectionsForTarget, findInputCandidates } from './tradeUpCalculator';
 
 const TIER_LABELS: Record<string, string> = {
@@ -35,6 +34,53 @@ const MODE_TO_TIER: Record<OptimizationMode, TradeUpContract['tier']> = {
 };
 
 const FLOAT_SAMPLES = [0.01, 0.03, 0.05, 0.07, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35];
+const MAX_CANDIDATE_POOL = 80;
+
+function trimCandidatePool(listings: CandidateListing[]): CandidateListing[] {
+  if (listings.length <= MAX_CANDIDATE_POOL) return listings;
+
+  const targetPool = listings.filter((listing) => listing.isTargetCollection);
+  const otherPool = listings.filter((listing) => !listing.isTargetCollection);
+  const merged = [...targetPool];
+
+  for (const listing of otherPool) {
+    if (merged.length >= MAX_CANDIDATE_POOL) break;
+    merged.push(listing);
+  }
+
+  return merged.length >= 10 ? merged : listings.slice(0, MAX_CANDIDATE_POOL);
+}
+
+/** Estima orçamento automático a partir do pool de preços. */
+export function estimateAutoBudget(candidates: CandidateListing[]): number {
+  if (candidates.length < 10) return 500;
+
+  const sorted = [...candidates].sort((a, b) => a.price - b.price);
+  const floorCost = sorted.slice(0, 10).reduce((sum, candidate) => sum + candidate.price, 0);
+
+  const targetCandidates = sorted.filter((candidate) => candidate.isTargetCollection);
+  const premiumPool = targetCandidates.length >= 10 ? targetCandidates : sorted;
+  const premiumCost = [...premiumPool]
+    .sort((a, b) => b.price - a.price)
+    .slice(0, 10)
+    .reduce((sum, candidate) => sum + candidate.price, 0);
+
+  const estimated = Math.max(premiumCost, floorCost * 2.5) * 1.1;
+  const capped = Math.min(estimated, floorCost * 6);
+  return Math.ceil(Math.max(capped, floorCost));
+}
+
+export function resolveSearchDefaults(
+  params: TargetSearchParams,
+  candidates?: CandidateListing[],
+): Required<Pick<TargetSearchParams, 'maxFloat' | 'budget' | 'mode'>> & TargetSearchParams {
+  return {
+    ...params,
+    maxFloat: params.maxFloat ?? wearToMaxFloat(params.wear),
+    budget: params.budget ?? (candidates ? estimateAutoBudget(candidates) : 500),
+    mode: params.mode ?? 'balanced',
+  };
+}
 
 export function resolveTargetSkin(params: TargetSearchParams): SkinItem {
   const byId = params.targetSkinId ? findSkinById(params.targetSkinId) : undefined;
@@ -64,7 +110,8 @@ export async function buildCandidatePool(
 
   await priceService.preload();
 
-  const candidates = findInputCandidates(targetSkin, params.maxFloat);
+  const maxFloat = params.maxFloat ?? wearToMaxFloat(params.wear);
+  const candidates = findInputCandidates(targetSkin, maxFloat);
   const targetCollectionIds = new Set(
     findCollectionsForTarget(targetSkin).map((c) => c.id),
   );
@@ -101,7 +148,7 @@ export async function buildCandidatePool(
     }
   }
 
-  return listings.sort((a, b) => a.price - b.price);
+  return trimCandidatePool(listings.sort((a, b) => a.price - b.price));
 }
 
 /**
@@ -206,7 +253,7 @@ export async function createEvaluationContext(
     (i) => i.rarity === targetSkin.rarity && i.stattrak === targetSkin.stattrak,
   );
   for (const item of outputItems) {
-    const key = `${item.id}-${params.maxFloat.toFixed(4)}`;
+    const key = `${item.id}-${(params.maxFloat ?? wearToMaxFloat(params.wear)).toFixed(4)}`;
     if (!priceCache.has(key)) {
       priceCache.set(key, await priceLookup(item.id, params.maxFloat));
     }
@@ -253,8 +300,8 @@ export async function createEvaluationContext(
           totalCost,
           targetSkinId: targetSkin.id,
           expectedFloat: floatMetrics.expectedOutputFloat,
-          maxFloat: params.maxFloat,
-          budget: params.budget,
+          maxFloat: params.maxFloat ?? wearToMaxFloat(params.wear),
+          budget: params.budget ?? estimateAutoBudget(ctx.candidates),
         },
         ctx.mode,
       );
@@ -279,13 +326,15 @@ export async function buildThreeContracts(
   params: TargetSearchParams,
 ): Promise<TradeUpContract[]> {
   const targetSkin = resolveTargetSkin(params);
+  const draftParams = resolveSearchDefaults(params);
 
-  const candidates = await buildCandidatePool(targetSkin, params);
+  const candidates = await buildCandidatePool(targetSkin, draftParams);
   if (candidates.length === 0) throw new Error('Nenhum candidato de entrada encontrado');
 
-  const baseCtx = await createEvaluationContext(targetSkin, candidates, params);
+  const resolvedParams = resolveSearchDefaults(draftParams, candidates);
+  const baseCtx = await createEvaluationContext(targetSkin, candidates, resolvedParams);
   const tierResults = optimizeThreeTiers(baseCtx);
-  const priceLookup = await createPriceLookup(params.marketplace);
+  const priceLookup = await createPriceLookup(resolvedParams.marketplace);
 
   return Promise.all(
     tierResults.map(async (tr) => {
@@ -293,7 +342,7 @@ export async function buildThreeContracts(
       const inputs = combinationToInputs(
         tr.result.combination,
         tr.result.candidatePool,
-        params.marketplace,
+        resolvedParams.marketplace,
       );
       assertValidContractInputs(inputs, targetSkin);
 
@@ -301,7 +350,7 @@ export async function buildThreeContracts(
       const contract = await calculateContract(
         inputs,
         targetSkin,
-        params.marketplace,
+        resolvedParams.marketplace,
         tier,
         TIER_LABELS[tier],
         tr.algorithm,
@@ -320,10 +369,12 @@ export async function findBestContract(
   params: TargetSearchParams,
 ): Promise<TradeUpContract> {
   const targetSkin = resolveTargetSkin(params);
+  const draftParams = resolveSearchDefaults(params);
 
-  const candidates = await buildCandidatePool(targetSkin, params);
+  const candidates = await buildCandidatePool(targetSkin, draftParams);
+  const resolvedParams = resolveSearchDefaults(draftParams, candidates);
   const ctx = await createEvaluationContext(targetSkin, candidates, {
-    ...params,
+    ...resolvedParams,
     mode: 'high_chance',
   });
 
@@ -332,16 +383,16 @@ export async function findBestContract(
     throw new Error('Não foi possível encontrar um contrato válido');
   }
 
-  const inputs = combinationToInputs(result.combination, result.candidatePool, params.marketplace);
+  const inputs = combinationToInputs(result.combination, result.candidatePool, resolvedParams.marketplace);
   assertValidContractInputs(inputs, targetSkin);
 
   const aiScore = scoreToStars(result.score);
-  const priceLookup = await createPriceLookup(params.marketplace);
+  const priceLookup = await createPriceLookup(resolvedParams.marketplace);
 
   return calculateContract(
     inputs,
     targetSkin,
-    params.marketplace,
+    resolvedParams.marketplace,
     'ai_best',
     TIER_LABELS.ai_best,
     algorithm,
@@ -357,10 +408,12 @@ export async function buildMinLossContract(
   params: TargetSearchParams,
 ): Promise<TradeUpContract> {
   const targetSkin = resolveTargetSkin(params);
+  const draftParams = resolveSearchDefaults(params);
 
-  const candidates = await buildCandidatePool(targetSkin, params);
+  const candidates = await buildCandidatePool(targetSkin, draftParams);
+  const resolvedParams = resolveSearchDefaults(draftParams, candidates);
   const ctx = await createEvaluationContext(targetSkin, candidates, {
-    ...params,
+    ...resolvedParams,
     mode: 'min_loss',
   });
 
@@ -369,16 +422,16 @@ export async function buildMinLossContract(
     throw new Error('Não foi possível encontrar um contrato válido');
   }
 
-  const inputs = combinationToInputs(result.combination, result.candidatePool, params.marketplace);
+  const inputs = combinationToInputs(result.combination, result.candidatePool, resolvedParams.marketplace);
   assertValidContractInputs(inputs, targetSkin);
 
   const aiScore = scoreToStars(result.score);
-  const priceLookup = await createPriceLookup(params.marketplace);
+  const priceLookup = await createPriceLookup(resolvedParams.marketplace);
 
   return calculateContract(
     inputs,
     targetSkin,
-    params.marketplace,
+    resolvedParams.marketplace,
     'min_loss',
     TIER_LABELS.min_loss,
     algorithm,

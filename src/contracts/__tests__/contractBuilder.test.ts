@@ -1,56 +1,80 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { buildThreeContracts, resolveTargetSkin } from '../contractBuilder';
-import { priceService } from '../../services/priceService';
+import { describe, it, expect } from 'vitest';
+import { findSkinByName, getAllSkins } from '../../data/collections';
+import {
+  estimateAutoBudget,
+  resolveSearchDefaults,
+  resolveTargetSkin,
+} from '../contractBuilder';
+import { findInputCandidates } from '../tradeUpCalculator';
+import type { CandidateListing } from '../../algorithms/types';
 
-describe('buildThreeContracts', () => {
-  beforeAll(async () => {
-    await priceService.preload();
-  });
+describe('resolveTargetSkin', () => {
+  it('resolve por targetSkinId com prioridade sobre skinName', () => {
+    const skin = findSkinByName('M4A1-S | Black Lotus', false);
+    expect(skin).toBeDefined();
 
-  it('gera tiers com métricas distintas usando preços reais', async () => {
-    const contracts = await buildThreeContracts({
-      skinName: 'M4A1-S | Black Lotus',
-      stattrak: true,
+    const resolved = resolveTargetSkin({
+      skinName: 'USP-S | Black Lotus',
+      targetSkinId: skin!.id,
+      stattrak: false,
       wear: 'Factory New',
-      maxFloat: 0.07,
-      budget: 100,
       marketplace: 'all',
-      mode: 'balanced',
     });
 
-    expect(contracts.length).toBeGreaterThanOrEqual(1);
+    expect(resolved.id).toBe(skin!.id);
+    expect(resolved.name).toBe('M4A1-S | Black Lotus');
+  });
+});
 
-    const costs = contracts.map((c) => c.evMetrics.totalCost);
-    const chances = contracts.map((c) => c.evMetrics.targetChance);
-
-    expect(costs.every((cost) => cost > 0)).toBe(true);
-    expect(chances.every((chance) => chance >= 0 && chance <= 1)).toBe(true);
-
-    for (const contract of contracts) {
-      const rarities = new Set(contract.inputs.map((input) => input.item.rarity));
-      expect(rarities.size).toBe(1);
-      expect(rarities.has('restricted')).toBe(true);
-      expect(contract.inputs.every((input) => input.item.stattrak)).toBe(true);
-    }
-
-    const params = {
+describe('resolveSearchDefaults', () => {
+  it('deriva float e modo automaticamente', () => {
+    const resolved = resolveSearchDefaults({
       skinName: 'M4A1-S | Black Lotus',
       stattrak: true,
-      wear: 'Factory New' as const,
-      maxFloat: 0.07,
-      budget: 100,
-      marketplace: 'all' as const,
-      mode: 'balanced' as const,
-    };
-    const targetSkin = resolveTargetSkin(params);
-    const budgetContract = contracts.find((contract) => contract.tier === 'budget');
+      wear: 'Field-Tested',
+      marketplace: 'all',
+    });
 
-    if (budgetContract) {
-      const targetCollectionInputs = budgetContract.inputs.filter(
-        (input) => input.item.collectionId === targetSkin.collectionId,
-      ).length;
-      expect(targetCollectionInputs).toBeGreaterThanOrEqual(1);
-      expect(budgetContract.evMetrics.targetChance).toBeGreaterThan(0);
-    }
-  }, 30_000);
+    expect(resolved.maxFloat).toBe(0.38);
+    expect(resolved.mode).toBe('balanced');
+    expect(resolved.budget).toBe(500);
+  });
+
+  it('estima orçamento a partir do pool de candidatos', () => {
+    const candidates: CandidateListing[] = Array.from({ length: 12 }, (_, index) => ({
+      listingId: `item-${index}`,
+      itemId: `skin-${index}`,
+      collectionId: 'col-1',
+      rarity: 'restricted',
+      stattrak: true,
+      price: 10 + index,
+      float: 0.15,
+      isTargetCollection: index < 4,
+    }));
+
+    expect(estimateAutoBudget(candidates)).toBeGreaterThan(100);
+  });
+});
+
+describe('findInputCandidates', () => {
+  it('exclui skins de coleção sem tier superior para a alvo', () => {
+    const searingRage = findSkinByName('AK-47 | Searing Rage', false);
+    const amberFade = findSkinByName('R8 Revolver | Amber Fade', false);
+    expect(searingRage).toBeDefined();
+    expect(amberFade).toBeDefined();
+
+    const covertTarget = getAllSkins().find(
+      (skin) =>
+        skin.rarity === 'covert' &&
+        !skin.stattrak &&
+        skin.collectionId === searingRage!.collectionId,
+    );
+    expect(covertTarget).toBeDefined();
+
+    const candidates = findInputCandidates(covertTarget!, 0.38);
+    const candidateIds = new Set(candidates.map((skin) => skin.id));
+
+    expect(candidateIds.has(searingRage!.id)).toBe(true);
+    expect(candidateIds.has(amberFade!.id)).toBe(false);
+  });
 });

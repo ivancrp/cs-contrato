@@ -25,28 +25,60 @@ export interface TradeUpSearchResult {
   minLossAnalysis?: MinLossAnalysis;
 }
 
+function contractSignature(contract: TradeUpContract): string {
+  return contract.inputs
+    .map((input) => `${input.item.id}:${input.listing.float.toFixed(4)}`)
+    .sort()
+    .join('|');
+}
+
+function mergeUniqueContracts(contracts: TradeUpContract[]): TradeUpContract[] {
+  const seen = new Set<string>();
+  const merged: TradeUpContract[] = [];
+
+  for (const contract of contracts) {
+    const signature = contractSignature(contract);
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    merged.push(contract);
+  }
+
+  return merged;
+}
+
 /**
  * Serviço principal de Trade Up.
  * Orquestra busca, otimização e persistência.
  */
 export class TradeUpService {
-  /** Gera os 3 contratos otimizados */
+  /** Gera múltiplos contratos otimizados automaticamente */
   async search(params: TargetSearchParams): Promise<TradeUpSearchResult> {
     await refreshCatalog();
     const targetSkin = resolveTargetSkin(params);
 
-    const contracts = await buildThreeContracts(params);
+    const tierContracts = await buildThreeContracts(params);
 
     let minLossContract: TradeUpContract | undefined;
     let minLossAnalysis: MinLossAnalysis | undefined;
-
-    if (params.mode === 'min_loss') {
+    try {
       minLossContract = await buildMinLossContract(params);
       minLossAnalysis = analyzeMinLossScenario(
         minLossContract.outputs,
         minLossContract.evMetrics.totalCost,
         targetSkin.id,
       );
+    } catch {
+      minLossContract = undefined;
+      minLossAnalysis = undefined;
+    }
+
+    const contracts = mergeUniqueContracts([
+      ...tierContracts,
+      ...(minLossContract ? [minLossContract] : []),
+    ]);
+
+    if (contracts.length === 0) {
+      throw new Error('Não foi possível gerar contratos válidos para esta skin alvo');
     }
 
     db.saveContractHistory(params, contracts);
@@ -55,7 +87,7 @@ export class TradeUpService {
       contracts.flatMap((contract) => contract.collectionsUsed),
     )];
 
-    const aiRecommendation = generateAIRecommendation(contracts, params.budget, params.mode);
+    const aiRecommendation = generateAIRecommendation(contracts);
 
     return {
       targetSkin,
@@ -67,7 +99,7 @@ export class TradeUpService {
     };
   }
 
-  /** Encontra melhor contrato via IA */
+  /** Mantido para compatibilidade com simulações pontuais */
   async findBest(params: TargetSearchParams): Promise<TradeUpContract> {
     await refreshCatalog();
     return findBestContract(params);

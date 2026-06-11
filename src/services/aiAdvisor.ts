@@ -1,4 +1,4 @@
-import type { OptimizationMode, TradeUpContract } from '../models/types';
+import type { TradeUpContract } from '../models/types';
 import { formatCurrency, formatPercent } from '../utils/format';
 
 export interface TierInsight {
@@ -28,27 +28,29 @@ const TIER_LABELS: Record<string, string> = {
  */
 export function generateAIRecommendation(
   contracts: TradeUpContract[],
-  budget: number,
-  mode: OptimizationMode = 'balanced',
 ): AIRecommendation {
   const tiers = contracts.filter((c) =>
     ['budget', 'balanced', 'premium'].includes(c.tier),
   );
+  const referenceBudget = Math.max(
+    ...contracts.map((contract) => contract.evMetrics.totalCost),
+    1,
+  );
 
-  const tierInsights = tiers.map((c) => buildTierInsight(c, budget));
+  const tierInsights = tiers.map((c) => buildTierInsight(c, referenceBudget));
   const ranked = [...tierInsights].sort((a, b) => b.score - a.score);
 
-  const weights = MODE_WEIGHTS[mode];
+  const weights = MODE_WEIGHTS.balanced;
   const scored = tiers.map((c) => ({
     contract: c,
-    score: computeTierScore(c, budget, weights),
+    score: computeTierScore(c, referenceBudget, weights),
   }));
   scored.sort((a, b) => b.score - a.score);
 
   const best = scored[0]?.contract ?? tiers[0];
   const recommendedTier = (best?.tier ?? 'balanced') as AIRecommendation['recommendedTier'];
 
-  const summary = buildSummary(best, tiers, budget, mode);
+  const summary = buildSummary(best, tiers, referenceBudget);
 
   return {
     recommendedTier,
@@ -137,19 +139,14 @@ function computeTierScore(
 function buildSummary(
   best: TradeUpContract | undefined,
   all: TradeUpContract[],
-  budget: number,
-  mode: OptimizationMode,
+  referenceBudget: number,
 ): string {
   if (!best) return 'Não foi possível gerar recomendação.';
 
-  const modeText: Record<OptimizationMode, string> = {
-    balanced: 'equilíbrio entre custo e chance',
-    low_cost: 'menor investimento possível',
-    high_chance: 'maior chance de obter a skin',
-    min_loss: 'menor perda em caso de falha',
-  };
-
   const cheapest = [...all].sort((a, b) => a.evMetrics.totalCost - b.evMetrics.totalCost)[0];
+  const highestProfitChance = [...all].sort(
+    (a, b) => b.evMetrics.breakEvenChance - a.evMetrics.breakEvenChance,
+  )[0];
   const highestChance = [...all].sort((a, b) => b.evMetrics.targetChance - a.evMetrics.targetChance)[0];
 
   let extra = '';
@@ -161,11 +158,16 @@ function buildSummary(
     extra = ` Chance de ${formatPercent(highestChance.evMetrics.targetChance * 100)} na skin alvo.`;
   }
 
+  if (highestProfitChance && highestProfitChance.id !== best.id) {
+    extra += ` Maior chance de lucro: ${formatPercent(highestProfitChance.evMetrics.breakEvenChance * 100)}.`;
+  }
+
   return (
-    `Para seu orçamento de ${formatCurrency(budget)} com foco em ${modeText[mode]}, ` +
+    `Com base em ${all.length} contratos analisados (referência ${formatCurrency(referenceBudget)}), ` +
     `recomendamos **${TIER_LABELS[best.tier]}**. ` +
     `Custo ${formatCurrency(best.evMetrics.totalCost)}, ` +
-    `chance ${formatPercent(best.evMetrics.targetChance * 100)}, ` +
+    `chance de lucro ${formatPercent(best.evMetrics.breakEvenChance * 100)}, ` +
+    `chance alvo ${formatPercent(best.evMetrics.targetChance * 100)}, ` +
     `ROI ${formatPercent(best.evMetrics.roi)}.${extra}`
   ).replace(/\*\*/g, '');
 }

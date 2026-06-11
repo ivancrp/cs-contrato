@@ -2,8 +2,12 @@ import { getCollections } from '../data/collections';
 import { calculateEVMetrics } from '../math/ev';
 import { calculateFloatMetrics } from '../math/float';
 import { calculateExpectedFloatForOutput } from '../math/float';
-import { buildContractOutputs, calculateOutputProbabilities } from '../math/probability';
-import { getInputRarityForTarget } from '../math/probability';
+import {
+  buildContractOutputs,
+  calculateOutputProbabilities,
+  getInputRarityForTarget,
+  isValidTradeUpInput,
+} from '../math/probability';
 import { assertValidContractInputs } from '../math/contractRules';
 import { maxInputFloatForTarget } from '../math/wear';
 import type {
@@ -45,13 +49,16 @@ export function findInputCandidates(
     targetSkin.maxFloat,
   );
 
-  return getCollections().flatMap((col) =>
+  const collections = getCollections();
+
+  return collections.flatMap((col) =>
     col.items.filter(
       (item) =>
-        !item.souvenir &&
         item.rarity === inputRarity &&
         item.stattrak === targetSkin.stattrak &&
-        item.minFloat <= maxInputFloat,
+        !!item.souvenir === !!targetSkin.souvenir &&
+        item.minFloat <= maxInputFloat &&
+        isValidTradeUpInput(item, targetSkin, collections),
     ),
   ).map((item) => ({
     ...item,

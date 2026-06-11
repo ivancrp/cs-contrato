@@ -45,7 +45,7 @@ export interface SkinItem {
   minFloat: number;
   maxFloat: number;
   stattrak: boolean;
-  /** Souvenir não pode entrar em trade up */
+  /** Souvenir pode entrar em trade up se todas as entradas forem Souvenir */
   souvenir?: boolean;
   imageUrl?: string;
 }
@@ -143,10 +143,13 @@ export interface TargetSearchParams {
   targetSkinId?: string;
   stattrak: boolean;
   wear: WearTier;
-  maxFloat: number;
-  budget: number;
+  /** Derivado automaticamente do wear quando omitido. */
+  maxFloat?: number;
+  /** Estimado automaticamente a partir dos preços quando omitido. */
+  budget?: number;
   marketplace: Marketplace;
-  mode: OptimizationMode;
+  /** Padrão balanced; otimização gera múltiplos tiers automaticamente. */
+  mode?: OptimizationMode;
 }
 
 export interface SimulationResult {

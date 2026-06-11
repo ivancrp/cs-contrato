@@ -90,7 +90,7 @@ describe('validateContractInputs', () => {
     expect(result.reason).toContain('10');
   });
 
-  it('rejeita entradas Souvenir', () => {
+  it('rejeita entradas Souvenir quando a saída alvo é normal', () => {
     const inputs = Array.from({ length: CONTRACT_INPUT_SIZE }, () =>
       makeInput(restrictedInput, { souvenir: true }),
     );
@@ -98,6 +98,38 @@ describe('validateContractInputs', () => {
     const result = validateContractInputs(inputs, target);
     expect(result.valid).toBe(false);
     expect(result.reason).toContain('Souvenir');
+  });
+
+  it('rejeita mistura de Souvenir e skins normais', () => {
+    const inputs = [
+      ...Array.from({ length: 5 }, () => makeInput(restrictedInput)),
+      ...Array.from({ length: 5 }, () => makeInput(restrictedInput, { souvenir: true })),
+    ];
+
+    const result = validateContractInputs(inputs, target);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('Souvenir');
+  });
+
+  it('rejeita entradas de coleção sem tier superior', () => {
+    const amberFade = requireSkin('R8 Revolver | Amber Fade', false);
+    const searingRage = requireSkin('AK-47 | Searing Rage', false);
+    const covertTarget = getAllSkins().find(
+      (skin) =>
+        skin.rarity === 'covert' &&
+        !skin.stattrak &&
+        skin.collectionId === searingRage.collectionId,
+    );
+    expect(covertTarget).toBeDefined();
+
+    const inputs = [
+      ...Array.from({ length: 8 }, () => makeInput(searingRage)),
+      ...Array.from({ length: 2 }, () => makeInput(amberFade)),
+    ];
+
+    const result = validateContractInputs(inputs, covertTarget!);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('não possui saída covert');
   });
 });
 

@@ -9,7 +9,7 @@ import { ContractCard } from './components/ContractCard';
 import { ContractComparison } from './components/ContractComparison';
 import { SearchForm } from './components/SearchForm';
 import { SkinImage } from './components/SkinImage';
-import type { TargetSearchParams, TradeUpContract } from './models/types';
+import type { TargetSearchParams } from './models/types';
 import { tradeUpService } from './services/tradeUpService';
 import type { TradeUpSearchResult } from './services/tradeUpService';
 import './App.css';
@@ -25,13 +25,11 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TradeUpSearchResult | null>(null);
   const [searchParams, setSearchParams] = useState<TargetSearchParams | null>(null);
-  const [bestContract, setBestContract] = useState<TradeUpContract | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleSearch = async (params: TargetSearchParams) => {
     setLoading(true);
     setError(null);
-    setBestContract(null);
     setSearchParams(params);
     try {
       const res = await tradeUpService.search(params);
@@ -43,30 +41,6 @@ function App() {
     }
   };
 
-  const handleFindBest = async (params: TargetSearchParams) => {
-    setLoading(true);
-    setError(null);
-    setSearchParams(params);
-    try {
-      const best = await tradeUpService.findBest(params);
-      setBestContract(best);
-      if (!result) {
-        const res = await tradeUpService.search(params);
-        setResult(res);
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao encontrar melhor contrato');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const allContracts = [
-    ...(result?.contracts ?? []),
-    ...(bestContract ? [bestContract] : []),
-    ...(result?.minLossContract ? [result.minLossContract] : []),
-  ];
-
   return (
     <div className="app">
       <header className="header">
@@ -75,14 +49,13 @@ function App() {
             <span className="logo">⚡</span>
             CS2 Trade Up Optimizer
           </h1>
-          <p>Calcule o melhor contrato de troca com EV, float e otimização IA</p>
+          <p>Calcule contratos de troca com custo, chance de lucro e otimização automática</p>
         </div>
       </header>
 
       <main className="main">
         <SearchForm
           onSearch={handleSearch}
-          onFindBest={handleFindBest}
           loading={loading}
         />
 
@@ -130,7 +103,7 @@ function App() {
             />
 
             <div className="contracts-grid">
-              {allContracts.map((contract) => (
+              {result.contracts.map((contract) => (
                 <ContractCard
                   key={contract.id}
                   contract={contract}
@@ -144,7 +117,7 @@ function App() {
       </main>
 
       <footer className="footer">
-        <p>Preços via Steam Community Market (ByMykel tracker) • Otimização IA com 3 estratégias distintas</p>
+        <p>Preços via Steam Community Market (ByMykel tracker) • Múltiplos contratos gerados automaticamente</p>
       </footer>
     </div>
   );

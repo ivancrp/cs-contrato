@@ -4,6 +4,38 @@ import { calculateExpectedFloatForOutput } from './float';
 import { floatToWear } from './wear';
 import { CONTRACT_INPUT_SIZE } from './contractRules';
 
+/** Coleção possui skin de saída no tier alvo (ex.: Covert para entradas Classified). */
+export function collectionHasTradeUpOutput(
+  collection: Collection,
+  outputRarity: Rarity,
+  stattrak: boolean,
+  souvenir = false,
+): boolean {
+  return collection.items.some(
+    (item) =>
+      item.rarity === outputRarity &&
+      item.stattrak === stattrak &&
+      !!item.souvenir === souvenir,
+  );
+}
+
+/** Entrada válida: mesma versão da alvo e coleção com tier superior disponível. */
+export function isValidTradeUpInput(
+  item: SkinItem,
+  targetSkin: SkinItem,
+  collections: Collection[],
+): boolean {
+  const collection = collections.find((entry) => entry.id === item.collectionId);
+  if (!collection) return false;
+
+  return collectionHasTradeUpOutput(
+    collection,
+    targetSkin.rarity,
+    targetSkin.stattrak,
+    !!targetSkin.souvenir,
+  );
+}
+
 /**
  * Obtém skins de saída possíveis baseado nas coleções das entradas.
  * Regra CS2: cada coleção presente contribui proporcionalmente ao pool de saída.
@@ -62,9 +94,12 @@ export function calculateOutputProbabilities(
     return new Map();
   }
 
-  if (inputs.some((input) => input.item.souvenir || input.listing.souvenir)) {
+  const souvenirValues = new Set(inputs.map((input) => !!(input.item.souvenir || input.listing.souvenir)));
+  if (souvenirValues.size !== 1) {
     return new Map();
   }
+
+  const [inputSouvenir] = [...souvenirValues];
 
   const collectionMap = new Map(collections.map((c) => [c.id, c]));
   const collectionCounts = new Map<string, number>();
@@ -82,7 +117,10 @@ export function calculateOutputProbabilities(
     if (!collection) continue;
 
     const outputSkins = collection.items.filter(
-      (item) => item.rarity === outputRarity && item.stattrak === stattrak,
+      (item) =>
+        item.rarity === outputRarity &&
+        item.stattrak === stattrak &&
+        !!item.souvenir === inputSouvenir,
     );
 
     if (outputSkins.length === 0) continue;
