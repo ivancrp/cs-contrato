@@ -2,6 +2,7 @@ import type { Collection, ContractInput, ContractOutput, Rarity, SkinItem } from
 import { getNextRarity } from '../utils/rarity';
 import { calculateExpectedFloatForOutput } from './float';
 import { floatToWear } from './wear';
+import { CONTRACT_INPUT_SIZE } from './contractRules';
 
 /**
  * Obtém skins de saída possíveis baseado nas coleções das entradas.
@@ -47,6 +48,20 @@ export function calculateOutputProbabilities(
   outputRarity: Rarity,
   stattrak: boolean,
 ): Map<string, number> {
+  const requiredInputRarity = getInputRarityForTarget(outputRarity);
+  if (!requiredInputRarity || inputs.length !== CONTRACT_INPUT_SIZE) {
+    return new Map();
+  }
+
+  const inputRarities = new Set(inputs.map((input) => input.item.rarity));
+  if (inputRarities.size !== 1 || !inputRarities.has(requiredInputRarity)) {
+    return new Map();
+  }
+
+  if (inputs.some((input) => input.item.stattrak !== stattrak)) {
+    return new Map();
+  }
+
   const collectionMap = new Map(collections.map((c) => [c.id, c]));
   const collectionCounts = new Map<string, number>();
 

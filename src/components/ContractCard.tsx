@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { MinLossAnalysis, SimulationResult, TradeUpContract } from '../models/types';
 import { formatCurrency, formatFloat, formatPercent } from '../utils/format';
+import { getItemRarityLabel } from '../contracts/tradeUpCalculator';
 import { InputTable } from './InputTable';
 import { OutputTable } from './OutputTable';
 import { ScoreStars } from './ScoreStars';
@@ -28,7 +29,10 @@ export function ContractCard({ contract, onSimulate, minLossAnalysis }: Contract
       </div>
 
       <div className="input-preview">
-        <span className="preview-label">10 entradas</span>
+        <span className="preview-label">
+          10 entradas
+          {contract.inputs[0] && ` · ${getItemRarityLabel(contract.inputs[0].item)}`}
+        </span>
         <InputGrid inputs={contract.inputs} preview />
       </div>
 

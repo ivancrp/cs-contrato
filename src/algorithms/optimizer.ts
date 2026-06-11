@@ -149,13 +149,12 @@ export function optimizeThreeTiers(
 ): { result: OptimizationResult; algorithm: AlgorithmType; mode: OptimizationMode }[] {
   const results: { result: OptimizationResult; algorithm: AlgorithmType; mode: OptimizationMode }[] = [];
   const usedSignatures = new Set<string>();
+  const originalCandidates = baseCtx.candidates;
 
   for (const config of TIER_CONFIGS) {
-    const tierCandidates = filterCandidatesForTier(baseCtx.candidates, config);
-    const ctx = wrapContextWithConstraints(
-      { ...baseCtx, candidates: tierCandidates },
-      config,
-    );
+    const tierCandidates = filterCandidatesForTier(originalCandidates, config);
+    baseCtx.candidates = tierCandidates;
+    const ctx = wrapContextWithConstraints(baseCtx, config);
 
     const seeds = generateTierSeeds(ctx, config.targetRatio);
     const seedEvals = seeds
@@ -196,6 +195,8 @@ export function optimizeThreeTiers(
       });
     }
   }
+
+  baseCtx.candidates = originalCandidates;
 
   return results;
 }

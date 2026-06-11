@@ -80,12 +80,13 @@ export function getAllSkins() {
   return COLLECTIONS.flatMap((c) => c.items);
 }
 
-/** Busca skin por nome (fuzzy) */
+/** Busca skin por nome (prioriza match exato). */
 export function findSkinByName(name: string, stattrak: boolean) {
   const normalized = name.toLowerCase().replace(/stattrak™?\s*/gi, '').trim();
-  return getAllSkins().find(
-    (s) =>
-      s.stattrak === stattrak &&
-      s.name.toLowerCase().includes(normalized),
+  const pool = getAllSkins().filter((s) => s.stattrak === stattrak);
+
+  return (
+    pool.find((s) => s.name.toLowerCase() === normalized) ??
+    pool.find((s) => s.name.toLowerCase().includes(normalized))
   );
 }

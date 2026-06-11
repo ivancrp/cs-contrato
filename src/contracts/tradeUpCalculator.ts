@@ -4,6 +4,7 @@ import { calculateFloatMetrics } from '../math/float';
 import { calculateExpectedFloatForOutput } from '../math/float';
 import { buildContractOutputs, calculateOutputProbabilities } from '../math/probability';
 import { getInputRarityForTarget } from '../math/probability';
+import { assertValidContractInputs } from '../math/contractRules';
 import { maxInputFloatForTarget } from '../math/wear';
 import type {
   Collection,
@@ -80,6 +81,8 @@ export async function calculateContract(
   aiScore: number,
   priceLookup?: (itemId: string, expectedFloat: number) => Promise<number> | number,
 ): Promise<TradeUpContract> {
+  assertValidContractInputs(inputs, targetSkin);
+
   const resolvePrice = async (itemId: string, expectedFloat: number): Promise<number> => {
     if (priceLookup) {
       const result = priceLookup(itemId, expectedFloat);

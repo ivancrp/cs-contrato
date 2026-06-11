@@ -1,9 +1,10 @@
-import type { ContractInput, ContractOutput, OptimizationMode } from '../models/types';
+import type { ContractInput, ContractOutput, OptimizationMode, Rarity } from '../models/types';
 
 export interface CandidateListing {
   listingId: string;
   itemId: string;
   collectionId: string;
+  rarity: Rarity;
   price: number;
   float: number;
   isTargetCollection: boolean;

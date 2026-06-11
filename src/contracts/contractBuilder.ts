@@ -5,6 +5,7 @@ import { COLLECTIONS, findSkinByName } from '../data/collections';
 import { buildContractOutputs } from '../math/probability';
 import { getInputRarityForTarget } from '../math/probability';
 import { calculateFloatMetrics } from '../math/float';
+import { validateContractInputs } from '../math/contractRules';
 import type {
   ContractInput,
   MarketListing,
@@ -67,6 +68,7 @@ export async function buildCandidatePool(
         listingId: `${item.id}-${f}-${params.marketplace}`,
         itemId: item.id,
         collectionId: item.collectionId,
+        rarity: item.rarity,
         price,
         float: f,
         isTargetCollection: targetCollectionIds.has(item.collectionId),
@@ -91,7 +93,16 @@ function combinationToInputs(
 
   return combination.map((idx) => {
     const candidate = candidates[idx];
-    const item = itemMap.get(candidate.itemId)!;
+    if (!candidate) {
+      throw new Error(`Candidato inválido no índice ${idx}.`);
+    }
+    const item = itemMap.get(candidate.itemId);
+    if (!item) {
+      throw new Error(`Skin não encontrada: ${candidate.itemId}.`);
+    }
+    if (item.rarity !== candidate.rarity) {
+      throw new Error(`Raridade inconsistente para ${item.name}.`);
+    }
     const wear = floatToWear(candidate.float);
     const listing: MarketListing = {
       id: candidate.listingId,
@@ -173,12 +184,23 @@ export async function createEvaluationContext(
     }
   }
 
-  return {
+  const ctx: EvaluationContext = {
     candidates,
     budget: params.budget,
     mode: params.mode,
     evaluate: (combination: Combination) => {
-      const inputs = combinationToInputs(combination, candidates, params.marketplace);
+      const inputs = combinationToInputs(combination, ctx.candidates, params.marketplace);
+      const validation = validateContractInputs(inputs, targetSkin);
+      if (!validation.valid) {
+        return {
+          inputs,
+          outputs: [],
+          totalCost: Number.POSITIVE_INFINITY,
+          expectedFloat: 1,
+          score: Number.NEGATIVE_INFINITY,
+        };
+      }
+
       const totalCost = inputs.reduce((s, i) => s + i.listing.price, 0);
       const floatMetrics = calculateFloatMetrics(inputs, targetSkin);
 
@@ -217,6 +239,8 @@ export async function createEvaluationContext(
       };
     },
   };
+
+  return ctx;
 }
 
 /**
