@@ -33,7 +33,7 @@ export function geneticOptimize(ctx: EvaluationContext): OptimizationResult | nu
         const cost = combinationCost(combo, ctx.candidates);
         if (cost > ctx.budget) return null;
         const result = ctx.evaluate(combo);
-        return { combination: combo, ...result };
+        return { combination: combo, candidatePool: [...ctx.candidates], ...result };
       })
       .filter((r): r is OptimizationResult => r !== null)
       .sort((a, b) => b.score - a.score);

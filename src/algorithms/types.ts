@@ -1,4 +1,4 @@
-import type { ContractInput, ContractOutput, OptimizationMode, Rarity } from '../models/types';
+import type { ContractInput, ContractOutput, OptimizationMode, Rarity, SkinItem } from '../models/types';
 
 export interface CandidateListing {
   listingId: string;
@@ -16,6 +16,7 @@ export type Combination = number[];
 
 export interface EvaluationContext {
   candidates: CandidateListing[];
+  targetSkin: SkinItem;
   evaluate: (combination: Combination) => {
     inputs: ContractInput[];
     outputs: ContractOutput[];
@@ -29,6 +30,8 @@ export interface EvaluationContext {
 
 export interface OptimizationResult {
   combination: Combination;
+  /** Snapshot do pool usado na otimização — evita corrupção ao rematerializar entradas. */
+  candidatePool: CandidateListing[];
   inputs: ContractInput[];
   outputs: ContractOutput[];
   totalCost: number;

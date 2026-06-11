@@ -449,6 +449,13 @@ input:focus, select:focus {
   margin-top: 1px;
 }
 
+.input-grid-rarity {
+  display: block;
+  font-size: 0.55rem;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
 .input-grid-price {
   display: block;
   font-size: 0.72rem;

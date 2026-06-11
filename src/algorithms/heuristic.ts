@@ -2,11 +2,21 @@ import type { CandidateListing, Combination, EvaluationContext, OptimizationResu
 
 const CONTRACT_SIZE = 10;
 
+function sortedCandidateIndices(
+  ctx: EvaluationContext,
+  compare: (a: CandidateListing, b: CandidateListing) => number,
+): number[] {
+  return ctx.candidates
+    .map((candidate, index) => ({ candidate, index }))
+    .sort((a, b) => compare(a.candidate, b.candidate))
+    .map(({ index }) => index);
+}
+
 /**
  * Heurística greedy: seleciona candidatos ordenados por critério do modo.
  */
 export function greedyOptimize(ctx: EvaluationContext): OptimizationResult | null {
-  const sorted = [...ctx.candidates].sort((a, b) => {
+  const sortedIndices = sortedCandidateIndices(ctx, (a, b) => {
     switch (ctx.mode) {
       case 'low_cost':
         return a.price - b.price;
@@ -15,7 +25,7 @@ export function greedyOptimize(ctx: EvaluationContext): OptimizationResult | nul
       case 'min_loss':
         return b.price - a.price;
       default:
-        return (a.isTargetCollection ? 0.5 : 0) + a.price * 0.001 - b.price * 0.001;
+        return (a.isTargetCollection ? 0.5 : 0) + a.price * 0.001 - (b.isTargetCollection ? 0.5 : 0) - b.price * 0.001;
     }
   });
 
@@ -23,20 +33,23 @@ export function greedyOptimize(ctx: EvaluationContext): OptimizationResult | nul
   let cost = 0;
 
   for (let i = 0; i < CONTRACT_SIZE; i++) {
-    const pick = sorted.find((c) => cost + c.price <= ctx.budget) ?? sorted[0];
+    const pickIdx = sortedIndices.find((idx) => {
+      const candidate = ctx.candidates[idx];
+      return candidate && cost + candidate.price <= ctx.budget;
+    }) ?? sortedIndices[0];
 
-    if (!pick) break;
-    combination.push(ctx.candidates.indexOf(pick));
-    cost += pick.price;
+    if (pickIdx === undefined) break;
+    combination.push(pickIdx);
+    cost += ctx.candidates[pickIdx]?.price ?? 0;
   }
 
   while (combination.length < CONTRACT_SIZE) {
-    combination.push(combination[combination.length - 1] ?? 0);
+    combination.push(combination[combination.length - 1] ?? sortedIndices[0] ?? 0);
   }
 
   if (combination.length < CONTRACT_SIZE) return null;
   const result = ctx.evaluate(combination);
-  return { combination, ...result };
+  return { combination, candidatePool: [...ctx.candidates], ...result };
 }
 
 /**
@@ -46,22 +59,28 @@ export function targetCollectionSeed(
   ctx: EvaluationContext,
   targetRatio: number,
 ): Combination {
-  const targetCandidates = ctx.candidates.filter((c) => c.isTargetCollection);
-  const otherCandidates = ctx.candidates.filter((c) => !c.isTargetCollection);
+  const targetIndices = sortedCandidateIndices(
+    ctx,
+    (a, b) => (a.isTargetCollection ? 0 : 1) - (b.isTargetCollection ? 0 : 1) || a.price - b.price,
+  ).filter((idx) => ctx.candidates[idx]?.isTargetCollection);
+
+  const otherIndices = sortedCandidateIndices(
+    ctx,
+    (a, b) => a.price - b.price,
+  ).filter((idx) => !ctx.candidates[idx]?.isTargetCollection);
+
   const targetCount = Math.round(CONTRACT_SIZE * targetRatio);
   const combination: Combination = [];
 
-  const cheapTarget = [...targetCandidates].sort((a, b) => a.price - b.price);
-  const cheapOther = [...otherCandidates].sort((a, b) => a.price - b.price);
-
   for (let i = 0; i < targetCount && i < CONTRACT_SIZE; i++) {
-    const c = cheapTarget[i % cheapTarget.length];
-    if (c) combination.push(ctx.candidates.indexOf(c));
+    const idx = targetIndices[i % (targetIndices.length || 1)];
+    if (idx !== undefined) combination.push(idx);
   }
 
   while (combination.length < CONTRACT_SIZE) {
-    const c = cheapOther[(combination.length - targetCount) % (cheapOther.length || 1)];
-    combination.push(c ? ctx.candidates.indexOf(c) : 0);
+    const slot = combination.length - targetCount;
+    const idx = otherIndices[slot % (otherIndices.length || 1)] ?? targetIndices[0] ?? 0;
+    combination.push(idx);
   }
 
   return combination;

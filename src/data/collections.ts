@@ -17,8 +17,6 @@ export const COLLECTIONS: Collection[] = [
       { id: 'rev-scar20-fragments', name: 'SCAR-20 | Fragments', weapon: 'SCAR-20', collectionId: 'revolution', rarity: 'mil-spec', minFloat: 0, maxFloat: 1, stattrak: false },
       { id: 'rev-glock-vogue', name: 'Glock-18 | Vogue', weapon: 'Glock-18', collectionId: 'revolution', rarity: 'restricted', minFloat: 0, maxFloat: 0.75, stattrak: false },
       { id: 'rev-glock-vogue-st', name: 'Glock-18 | Vogue', weapon: 'Glock-18', collectionId: 'revolution', rarity: 'restricted', minFloat: 0, maxFloat: 0.75, stattrak: true },
-      { id: 'rev-mac10-ensnared', name: 'MAC-10 | Ensnared', weapon: 'MAC-10', collectionId: 'revolution', rarity: 'restricted', minFloat: 0, maxFloat: 1, stattrak: false },
-      { id: 'rev-mac10-ensnared-st', name: 'MAC-10 | Ensnared', weapon: 'MAC-10', collectionId: 'revolution', rarity: 'restricted', minFloat: 0, maxFloat: 1, stattrak: true },
       { id: 'rev-m4a1s-black-lotus', name: 'M4A1-S | Black Lotus', weapon: 'M4A1-S', collectionId: 'revolution', rarity: 'classified', minFloat: 0, maxFloat: 0.7, stattrak: false },
       { id: 'rev-m4a1s-black-lotus-st', name: 'M4A1-S | Black Lotus', weapon: 'M4A1-S', collectionId: 'revolution', rarity: 'classified', minFloat: 0, maxFloat: 0.7, stattrak: true },
       { id: 'rev-ak47-head-shot', name: 'AK-47 | Head Shot', weapon: 'AK-47', collectionId: 'revolution', rarity: 'covert', minFloat: 0, maxFloat: 1, stattrak: false },
@@ -52,6 +50,8 @@ export const COLLECTIONS: Collection[] = [
       { id: 'dn-mp7-abyssal-st', name: 'MP7 | Abyssal Apparition', weapon: 'MP7', collectionId: 'dreams-nightmares', rarity: 'restricted', minFloat: 0, maxFloat: 1, stattrak: true },
       { id: 'dn-famas-mecha', name: 'FAMAS | Rapid Eye Movement', weapon: 'FAMAS', collectionId: 'dreams-nightmares', rarity: 'restricted', minFloat: 0, maxFloat: 1, stattrak: false },
       { id: 'dn-famas-mecha-st', name: 'FAMAS | Rapid Eye Movement', weapon: 'FAMAS', collectionId: 'dreams-nightmares', rarity: 'restricted', minFloat: 0, maxFloat: 1, stattrak: true },
+      { id: 'dn-mac10-ensnared', name: 'MAC-10 | Ensnared', weapon: 'MAC-10', collectionId: 'dreams-nightmares', rarity: 'restricted', minFloat: 0, maxFloat: 1, stattrak: false },
+      { id: 'dn-mac10-ensnared-st', name: 'MAC-10 | Ensnared', weapon: 'MAC-10', collectionId: 'dreams-nightmares', rarity: 'restricted', minFloat: 0, maxFloat: 1, stattrak: true },
       { id: 'dn-ak47-nightwish', name: 'AK-47 | Nightwish', weapon: 'AK-47', collectionId: 'dreams-nightmares', rarity: 'classified', minFloat: 0, maxFloat: 1, stattrak: false },
       { id: 'dn-ak47-nightwish-st', name: 'AK-47 | Nightwish', weapon: 'AK-47', collectionId: 'dreams-nightmares', rarity: 'classified', minFloat: 0, maxFloat: 1, stattrak: true },
       { id: 'dn-mp9-starlight', name: 'MP9 | Starlight Protector', weapon: 'MP9', collectionId: 'dreams-nightmares', rarity: 'covert', minFloat: 0, maxFloat: 0.8, stattrak: false },
@@ -85,8 +85,11 @@ export function findSkinByName(name: string, stattrak: boolean) {
   const normalized = name.toLowerCase().replace(/stattrak™?\s*/gi, '').trim();
   const pool = getAllSkins().filter((s) => s.stattrak === stattrak);
 
-  return (
-    pool.find((s) => s.name.toLowerCase() === normalized) ??
-    pool.find((s) => s.name.toLowerCase().includes(normalized))
-  );
+  const exact = pool.filter((s) => s.name.toLowerCase() === normalized);
+  if (exact.length === 1) return exact[0];
+  if (exact.length > 1) {
+    return exact.find((s) => s.rarity !== 'consumer' && s.rarity !== 'industrial') ?? exact[0];
+  }
+
+  return pool.find((s) => s.name.toLowerCase().includes(normalized));
 }

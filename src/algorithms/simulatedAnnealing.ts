@@ -15,7 +15,11 @@ export function simulatedAnnealingOptimize(
 
   let current: Combination = generateTierSeeds(ctx)[0] ?? randomCombination(poolSize);
   let currentEval = ctx.evaluate(current);
-  let best: OptimizationResult = { combination: current, ...currentEval };
+  let best: OptimizationResult = {
+    combination: current,
+    candidatePool: [...ctx.candidates],
+    ...currentEval,
+  };
 
   let temperature = 100;
   const coolingRate = 0.995;
@@ -35,7 +39,7 @@ export function simulatedAnnealingOptimize(
       current = neighbor;
       currentEval = neighborEval;
       if (neighborEval.score > best.score) {
-        best = { combination: neighbor, ...neighborEval };
+        best = { combination: neighbor, candidatePool: [...ctx.candidates], ...neighborEval };
       }
     }
 

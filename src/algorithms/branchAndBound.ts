@@ -25,7 +25,7 @@ export function branchAndBoundOptimize(ctx: EvaluationContext): OptimizationResu
       const result = ctx.evaluate(node.combination);
       if (result.score > bestScore) {
         bestScore = result.score;
-        best = { combination: node.combination, ...result };
+        best = { combination: node.combination, candidatePool: [...ctx.candidates], ...result };
       }
       continue;
     }

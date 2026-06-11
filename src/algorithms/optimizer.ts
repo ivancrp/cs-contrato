@@ -1,4 +1,5 @@
 import type { AlgorithmType, OptimizationMode } from '../models/types';
+import { validateContractInputs } from '../math/contractRules';
 import { branchAndBoundOptimize } from './branchAndBound';
 import { geneticOptimize } from './geneticAlgorithm';
 import { generateTierSeeds, greedyOptimize } from './heuristic';
@@ -85,6 +86,20 @@ function applyTargetPenalty(
   return Math.max(0, score - penalty);
 }
 
+function isValidOptimizationResult(
+  result: OptimizationResult,
+  ctx: EvaluationContext,
+): boolean {
+  if (!Number.isFinite(result.totalCost) || result.totalCost > ctx.budget) return false;
+  if (result.score === Number.NEGATIVE_INFINITY) return false;
+  if (result.inputs.length !== 10) return false;
+
+  const rarities = new Set(result.inputs.map((input) => input.item.rarity));
+  if (rarities.size !== 1) return false;
+
+  return validateContractInputs(result.inputs, ctx.targetSkin).valid;
+}
+
 function wrapContextWithConstraints(
   baseCtx: EvaluationContext,
   config: TierOptimizationConfig,
@@ -133,9 +148,13 @@ function pickBestAlternative(
   const evaluated = seeds
     .map((s) => {
       const ev = ctx.evaluate(s);
-      return { combination: s, ...ev };
+      return { combination: s, candidatePool: [...ctx.candidates], ...ev };
     })
-    .filter((r) => r.totalCost <= ctx.budget && !excluded.has(combinationSignature(r.combination)))
+    .filter(
+      (r) =>
+        isValidOptimizationResult(r, ctx) &&
+        !excluded.has(combinationSignature(r.combination)),
+    )
     .sort((a, b) => b.score - a.score);
 
   return evaluated[0] ?? null;
@@ -160,30 +179,33 @@ export function optimizeThreeTiers(
     const seedEvals = seeds
       .map((s) => {
         const ev = ctx.evaluate(s);
-        return { combination: s, ...ev };
+        return { combination: s, candidatePool: [...tierCandidates], ...ev };
       })
-      .filter((r) => r.totalCost <= ctx.budget);
+      .filter((r) => isValidOptimizationResult(r, ctx));
 
     const { result, algorithm } = optimizeContract(ctx);
-    let best = result && result.score >= (seedEvals[0]?.score ?? -1)
-      ? result
-      : [...seedEvals].sort((a, b) => b.score - a.score)[0];
+    let best =
+      result && isValidOptimizationResult({ ...result, candidatePool: [...tierCandidates] }, ctx) &&
+      result.score >= (seedEvals[0]?.score ?? -1)
+        ? { ...result, candidatePool: [...tierCandidates] }
+        : [...seedEvals].sort((a, b) => b.score - a.score)[0];
 
     if (best && usedSignatures.has(combinationSignature(best.combination))) {
       const alt = pickBestAlternative(ctx, seeds, usedSignatures);
       if (alt && alt.score > 0) best = alt;
     }
 
-    if (!best) {
+    if (!best || !isValidOptimizationResult(best, ctx)) {
       const fallback = pickBestAlternative(ctx, seeds, usedSignatures);
-      if (fallback) best = fallback;
+      if (fallback && isValidOptimizationResult(fallback, ctx)) best = fallback;
     }
 
-    if (best) {
+    if (best && isValidOptimizationResult(best, ctx)) {
       usedSignatures.add(combinationSignature(best.combination));
       results.push({
         result: {
           combination: best.combination,
+          candidatePool: best.candidatePool,
           inputs: best.inputs,
           outputs: best.outputs,
           totalCost: best.totalCost,

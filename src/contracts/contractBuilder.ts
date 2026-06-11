@@ -5,7 +5,7 @@ import { COLLECTIONS, findSkinByName } from '../data/collections';
 import { buildContractOutputs } from '../math/probability';
 import { getInputRarityForTarget } from '../math/probability';
 import { calculateFloatMetrics } from '../math/float';
-import { validateContractInputs } from '../math/contractRules';
+import { validateContractInputs, assertValidContractInputs } from '../math/contractRules';
 import type {
   ContractInput,
   MarketListing,
@@ -98,7 +98,7 @@ export async function buildCandidatePool(
 /**
  * Converte combinação de índices em ContractInput[].
  */
-function combinationToInputs(
+export function combinationToInputs(
   combination: Combination,
   candidates: CandidateListing[],
   marketplace: TargetSearchParams['marketplace'],
@@ -205,6 +205,7 @@ export async function createEvaluationContext(
 
   const ctx: EvaluationContext = {
     candidates,
+    targetSkin,
     budget: params.budget,
     mode: params.mode,
     evaluate: (combination: Combination) => {
@@ -281,9 +282,16 @@ export async function buildThreeContracts(
 
   return Promise.all(
     tierResults.map(async (tr, i) => {
+      const inputs = combinationToInputs(
+        tr.result.combination,
+        tr.result.candidatePool,
+        params.marketplace,
+      );
+      assertValidContractInputs(inputs, targetSkin);
+
       const aiScore = scoreToStars(tr.result.score);
       const contract = await calculateContract(
-        tr.result.inputs,
+        inputs,
         targetSkin,
         params.marketplace,
         tiers[i] ?? 'balanced',
@@ -312,13 +320,18 @@ export async function findBestContract(
   });
 
   const { result, algorithm } = optimizeContract(ctx);
-  if (!result) throw new Error('Não foi possível encontrar um contrato válido');
+  if (!result || result.score === Number.NEGATIVE_INFINITY) {
+    throw new Error('Não foi possível encontrar um contrato válido');
+  }
+
+  const inputs = combinationToInputs(result.combination, result.candidatePool, params.marketplace);
+  assertValidContractInputs(inputs, targetSkin);
 
   const aiScore = scoreToStars(result.score);
   const priceLookup = await createPriceLookup(params.marketplace);
 
   return calculateContract(
-    result.inputs,
+    inputs,
     targetSkin,
     params.marketplace,
     'ai_best',
@@ -344,13 +357,18 @@ export async function buildMinLossContract(
   });
 
   const { result, algorithm } = optimizeContract(ctx);
-  if (!result) throw new Error('Não foi possível encontrar um contrato válido');
+  if (!result || result.score === Number.NEGATIVE_INFINITY) {
+    throw new Error('Não foi possível encontrar um contrato válido');
+  }
+
+  const inputs = combinationToInputs(result.combination, result.candidatePool, params.marketplace);
+  assertValidContractInputs(inputs, targetSkin);
 
   const aiScore = scoreToStars(result.score);
   const priceLookup = await createPriceLookup(params.marketplace);
 
   return calculateContract(
-    result.inputs,
+    inputs,
     targetSkin,
     params.marketplace,
     'min_loss',

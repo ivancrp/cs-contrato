@@ -21,6 +21,7 @@ export function InputGrid({ inputs, preview = false }: InputGridProps) {
               {input.item.name}
             </span>
             <span className="input-grid-wear">({input.listing.wear})</span>
+            <span className="input-grid-rarity">{input.item.rarity.replace('-', ' ')}</span>
           </div>
           <SkinImage
             name={input.item.name}
