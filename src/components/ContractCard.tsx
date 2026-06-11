@@ -29,7 +29,7 @@ export function ContractCard({ contract, onSimulate, minLossAnalysis }: Contract
 
       <div className="input-preview">
         <span className="preview-label">10 entradas</span>
-        <InputGrid inputs={contract.inputs} />
+        <InputGrid inputs={contract.inputs} preview />
       </div>
 
       <div className="metrics-grid">

@@ -343,6 +343,8 @@ input:focus, select:focus {
 /* ---- Input preview / grid ---- */
 .input-preview {
   margin-bottom: 1rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .preview-label {
@@ -355,8 +357,13 @@ input:focus, select:focus {
 
 .input-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.5rem;
+  min-width: 0;
+}
+
+.input-grid-preview {
+  gap: 0.35rem;
 }
 
 .input-grid-item {
@@ -369,6 +376,20 @@ input:focus, select:focus {
   border-radius: 8px;
   border: 1px solid var(--border);
   text-align: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.input-grid-preview .input-grid-item {
+  padding: 0.3rem 0.2rem;
+}
+
+.input-grid-preview .skin-image-wrap {
+  width: 100%;
+  max-width: 56px;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  flex-shrink: 1;
 }
 
 .input-grid-info {
@@ -485,8 +506,13 @@ input:focus, select:focus {
 
 .contracts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  grid-template-columns: 1fr;
   gap: 1.25rem;
+}
+
+.contract-card {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .contract-card.tier-budget { border-left: 3px solid var(--success); }
@@ -522,8 +548,9 @@ input:focus, select:focus {
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
+  min-width: 0;
 }
 
 .metrics-grid.small {
@@ -546,6 +573,7 @@ input:focus, select:focus {
 .metric .value {
   font-size: 1rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .metric .sub {
@@ -880,12 +908,8 @@ input:focus, select:focus {
 
 /* ---- Breakpoints ---- */
 @media (max-width: 1200px) {
-  .contracts-grid {
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  }
-
   .metrics-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -908,7 +932,7 @@ input:focus, select:focus {
   }
 
   .input-grid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -961,10 +985,6 @@ input:focus, select:focus {
     grid-template-columns: 1fr;
   }
 
-  .contracts-grid {
-    grid-template-columns: 1fr;
-  }
-
   .contract-header {
     flex-direction: column;
     gap: 0.5rem;
@@ -976,7 +996,7 @@ input:focus, select:focus {
   }
 
   .input-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .input-grid-mobile,
@@ -1011,12 +1031,16 @@ input:focus, select:focus {
   }
 
   .input-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.35rem;
   }
 
   .input-grid-item {
     padding: 0.3rem;
+  }
+
+  .input-grid-preview {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .filter-btn {
