@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { findSkinByName } from '../../data/collections';
-import { validateContractInputs, CONTRACT_INPUT_SIZE } from '../contractRules';
+import { findSkinByName, getAllSkins } from '../../data/collections';
+import { validateContractInputs, CONTRACT_INPUT_SIZE, canBeTradeUpTarget } from '../contractRules';
 import type { ContractInput, SkinItem } from '../../models/types';
 
 function requireSkin(name: string, stattrak: boolean): SkinItem {
@@ -98,5 +98,18 @@ describe('validateContractInputs', () => {
     const result = validateContractInputs(inputs, target);
     expect(result.valid).toBe(false);
     expect(result.reason).toContain('Souvenir');
+  });
+});
+
+describe('canBeTradeUpTarget', () => {
+  it('aceita skin alvo com entradas disponíveis no tier inferior', () => {
+    const target = requireSkin('M4A1-S | Black Lotus', true);
+    expect(canBeTradeUpTarget(target, getAllSkins())).toBe(true);
+  });
+
+  it('rejeita skin alvo no tier mais baixo do trade up', () => {
+    const consumer = getAllSkins().find((skin) => skin.rarity === 'consumer' && !skin.souvenir);
+    expect(consumer).toBeDefined();
+    expect(canBeTradeUpTarget(consumer!, getAllSkins())).toBe(false);
   });
 });

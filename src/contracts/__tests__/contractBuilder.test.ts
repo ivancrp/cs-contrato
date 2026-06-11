@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { buildThreeContracts } from '../contractBuilder';
+import { buildThreeContracts, resolveTargetSkin } from '../contractBuilder';
 import { priceService } from '../../services/priceService';
 
 describe('buildThreeContracts', () => {
@@ -31,6 +31,26 @@ describe('buildThreeContracts', () => {
       expect(rarities.size).toBe(1);
       expect(rarities.has('restricted')).toBe(true);
       expect(contract.inputs.every((input) => input.item.stattrak)).toBe(true);
+    }
+
+    const params = {
+      skinName: 'M4A1-S | Black Lotus',
+      stattrak: true,
+      wear: 'Factory New' as const,
+      maxFloat: 0.07,
+      budget: 100,
+      marketplace: 'all' as const,
+      mode: 'balanced' as const,
+    };
+    const targetSkin = resolveTargetSkin(params);
+    const budgetContract = contracts.find((contract) => contract.tier === 'budget');
+
+    if (budgetContract) {
+      const targetCollectionInputs = budgetContract.inputs.filter(
+        (input) => input.item.collectionId === targetSkin.collectionId,
+      ).length;
+      expect(targetCollectionInputs).toBeGreaterThanOrEqual(1);
+      expect(budgetContract.evMetrics.targetChance).toBeGreaterThan(0);
     }
   }, 30_000);
 });

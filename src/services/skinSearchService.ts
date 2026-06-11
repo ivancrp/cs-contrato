@@ -1,16 +1,9 @@
 import { catalogStore } from '../data/catalogStore';
 import { getAllSkins, getCollectionName } from '../data/collections';
+import { canBeTradeUpTarget } from '../math/contractRules';
 import type { SkinItem } from '../models/types';
 import { normalizeSkinName } from '../utils/format';
 import { getRarityLabel } from '../utils/rarity';
-
-const TARGET_RARITIES = new Set<SkinItem['rarity']>([
-  'mil-spec',
-  'restricted',
-  'classified',
-  'covert',
-  'extraordinary',
-]);
 
 function scoreMatch(skin: SkinItem, normalized: string): number {
   const name = normalizeSkinName(skin.name);
@@ -40,16 +33,16 @@ function enrichSkin(skin: SkinItem): SkinSearchResult {
 export async function searchTargetSkins(
   query: string,
   stattrak?: boolean,
-  limit = 15,
+  limit = 20,
 ): Promise<SkinSearchResult[]> {
   await catalogStore.refresh();
 
   const normalized = normalizeSkinName(query);
-  let pool = getAllSkins().filter(
+  const catalog = getAllSkins();
+  let pool = catalog.filter(
     (skin) =>
-      !skin.souvenir &&
-      TARGET_RARITIES.has(skin.rarity) &&
-      (stattrak === undefined || skin.stattrak === stattrak),
+      (stattrak === undefined || skin.stattrak === stattrak) &&
+      canBeTradeUpTarget(skin, catalog),
   );
 
   if (normalized) {

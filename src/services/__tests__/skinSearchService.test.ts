@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { findSkinByName } from '../../data/collections';
+import { findSkinByName, getAllSkins } from '../../data/collections';
 import { resolveTargetSkin } from '../../contracts/contractBuilder';
+import { canBeTradeUpTarget } from '../../math/contractRules';
 import { skinSearchService } from '../../services/skinSearchService';
 
 describe('skinSearchService', () => {
@@ -10,6 +11,17 @@ describe('skinSearchService', () => {
     expect(match).toBeDefined();
     expect(match?.rarity).toBe('classified');
     expect(match?.collectionName).toContain('Kilowatt');
+  });
+
+  it('exclui skins sem raridade inferior para trade up', async () => {
+    const catalog = getAllSkins();
+    const consumerSkin = catalog.find((skin) => skin.rarity === 'consumer' && !skin.souvenir);
+    expect(consumerSkin).toBeDefined();
+    expect(canBeTradeUpTarget(consumerSkin!, catalog)).toBe(false);
+
+    const results = await skinSearchService.search('', false, 200);
+    expect(results.every((skin) => canBeTradeUpTarget(skin, catalog))).toBe(true);
+    expect(results.some((skin) => skin.rarity === 'consumer')).toBe(false);
   });
 
   it('resolveTargetSkin usa targetSkinId quando informado', () => {

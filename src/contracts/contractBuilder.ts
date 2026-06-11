@@ -9,6 +9,7 @@ import { validateContractInputs, assertValidContractInputs } from '../math/contr
 import type {
   ContractInput,
   MarketListing,
+  OptimizationMode,
   SkinItem,
   TargetSearchParams,
   TradeUpContract,
@@ -24,6 +25,13 @@ const TIER_LABELS: Record<string, string> = {
   premium: '$$$ Maior investimento',
   ai_best: '★ Melhor Contrato IA',
   min_loss: '🛡 Menor Perda Possível',
+};
+
+const MODE_TO_TIER: Record<OptimizationMode, TradeUpContract['tier']> = {
+  low_cost: 'budget',
+  balanced: 'balanced',
+  high_chance: 'premium',
+  min_loss: 'min_loss',
 };
 
 const FLOAT_SAMPLES = [0.01, 0.03, 0.05, 0.07, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35];
@@ -248,7 +256,7 @@ export async function createEvaluationContext(
           maxFloat: params.maxFloat,
           budget: params.budget,
         },
-        params.mode,
+        ctx.mode,
       );
 
       return {
@@ -279,10 +287,9 @@ export async function buildThreeContracts(
   const tierResults = optimizeThreeTiers(baseCtx);
   const priceLookup = await createPriceLookup(params.marketplace);
 
-  const tiers: TradeUpContract['tier'][] = ['budget', 'balanced', 'premium'];
-
   return Promise.all(
-    tierResults.map(async (tr, i) => {
+    tierResults.map(async (tr) => {
+      const tier = MODE_TO_TIER[tr.mode];
       const inputs = combinationToInputs(
         tr.result.combination,
         tr.result.candidatePool,
@@ -295,8 +302,8 @@ export async function buildThreeContracts(
         inputs,
         targetSkin,
         params.marketplace,
-        tiers[i] ?? 'balanced',
-        TIER_LABELS[tiers[i] ?? 'balanced'],
+        tier,
+        TIER_LABELS[tier],
         tr.algorithm,
         aiScore,
         priceLookup,

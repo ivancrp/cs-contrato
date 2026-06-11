@@ -104,6 +104,21 @@ export function getRequiredInputRarity(targetSkin: SkinItem): Rarity | null {
   return getInputRarityForTarget(targetSkin.rarity);
 }
 
+/** Skin alvo válida: possui raridade inferior com entradas disponíveis no catálogo. */
+export function canBeTradeUpTarget(skin: SkinItem, inputPool: SkinItem[]): boolean {
+  if (skin.souvenir) return false;
+
+  const requiredInputRarity = getInputRarityForTarget(skin.rarity);
+  if (!requiredInputRarity) return false;
+
+  return inputPool.some(
+    (item) =>
+      !item.souvenir &&
+      item.rarity === requiredInputRarity &&
+      item.stattrak === skin.stattrak,
+  );
+}
+
 export function isSouvenirItem(item: SkinItem): boolean {
   return !!item.souvenir;
 }

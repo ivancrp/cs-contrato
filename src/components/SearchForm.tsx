@@ -59,11 +59,11 @@ export function SearchForm({
     >
       <h2>Configurar Trade Up</h2>
       <p className="search-form-hint">
-        Pesquise a skin alvo na API Steam, selecione na lista e veja os melhores contratos.
+        Pesquise a skin alvo na API Steam. Apenas skins com trade up válido aparecem na lista.
       </p>
 
       <div className="form-grid">
-        <label>
+        <label className="form-field-skin-target">
           Skin alvo
           <SkinAutocomplete
             value={skinName}

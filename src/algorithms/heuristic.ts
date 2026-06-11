@@ -19,7 +19,10 @@ export function greedyOptimize(ctx: EvaluationContext): OptimizationResult | nul
   const sortedIndices = sortedCandidateIndices(ctx, (a, b) => {
     switch (ctx.mode) {
       case 'low_cost':
-        return a.price - b.price;
+        return (
+          (b.isTargetCollection ? 1 : 0) - (a.isTargetCollection ? 1 : 0) ||
+          a.price - b.price
+        );
       case 'high_chance':
         return (b.isTargetCollection ? 1 : 0) - (a.isTargetCollection ? 1 : 0) || a.price - b.price;
       case 'min_loss':
