@@ -15,12 +15,21 @@ export function InputGrid({ inputs, preview = false }: InputGridProps) {
     <div className={`input-grid${preview ? ' input-grid-preview' : ''}`}>
       {inputs.map((input, i) => (
         <div key={i} className="input-grid-item">
-          <SkinImage name={input.item.name} rarity={input.item.rarity} size="sm" />
-          <div className="input-grid-info">
-            <span className="input-grid-name">{input.item.name}</span>
-            <span className="input-grid-meta">
-              {formatFloat(input.listing.float)} · {formatCurrency(input.listing.price)}
+          <div className="input-grid-header">
+            <span className="input-grid-name" title={input.item.name}>
+              {input.item.name}
             </span>
+            <span className="input-grid-wear">({input.listing.wear})</span>
+          </div>
+          <SkinImage
+            name={input.item.name}
+            rarity={input.item.rarity}
+            size="md"
+            className="input-grid-img"
+          />
+          <div className="input-grid-info">
+            <span className="input-grid-price">{formatCurrency(input.listing.price)}</span>
+            <span className="input-grid-meta">{formatFloat(input.listing.float)}</span>
             {!preview && (
               <InspectButton
                 compact

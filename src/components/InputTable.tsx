@@ -56,7 +56,7 @@ export function InputTable({ inputs }: InputTableProps) {
             {sorted.map((input, i) => (
               <tr key={i}>
                 <td className="col-img">
-                  <SkinImage name={input.item.name} rarity={input.item.rarity} size="sm" />
+                  <SkinImage name={input.item.name} rarity={input.item.rarity} size="md" />
                 </td>
                 <td className="skin-name-cell">{input.item.name}</td>
                 <td>{getCollectionName(input.item.collectionId)}</td>
