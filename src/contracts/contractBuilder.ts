@@ -1,7 +1,7 @@
 import { optimizeContract, optimizeThreeTiers } from '../algorithms/optimizer';
 import { calculateContractScore, scoreToStars } from '../algorithms/scoring';
 import type { CandidateListing, Combination, EvaluationContext } from '../algorithms/types';
-import { findSkinByName, getCollections } from '../data/collections';
+import { findSkinById, findSkinByName, getCollections } from '../data/collections';
 import { buildContractOutputs } from '../math/probability';
 import { getInputRarityForTarget } from '../math/probability';
 import { calculateFloatMetrics } from '../math/float';
@@ -29,7 +29,8 @@ const TIER_LABELS: Record<string, string> = {
 const FLOAT_SAMPLES = [0.01, 0.03, 0.05, 0.07, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35];
 
 export function resolveTargetSkin(params: TargetSearchParams): SkinItem {
-  const targetSkin = findSkinByName(params.skinName, params.stattrak);
+  const byId = params.targetSkinId ? findSkinById(params.targetSkinId) : undefined;
+  const targetSkin = byId ?? findSkinByName(params.skinName, params.stattrak);
   if (!targetSkin) {
     throw new Error(`Skin não encontrada: ${params.skinName}`);
   }

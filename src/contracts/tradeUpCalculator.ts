@@ -161,9 +161,7 @@ export async function calculateContract(
   };
 }
 
-export function getCollectionName(collectionId: string): string {
-  return getCollections().find((c) => c.id === collectionId)?.name ?? collectionId;
-}
+export { getCollectionName } from '../data/collections';
 
 export function getItemRarityLabel(item: SkinItem): string {
   return getRarityLabel(item.rarity);

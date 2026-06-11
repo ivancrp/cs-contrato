@@ -136,9 +136,36 @@ input:focus, select:focus {
 .autocomplete-text {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.autocomplete-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.autocomplete-meta {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.autocomplete-status {
+  padding: 0.65rem 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: default;
+}
+
+.search-form-hint {
+  margin: -0.25rem 0 1rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
 }
 
 .autocomplete-list li:hover {

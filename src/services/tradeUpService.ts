@@ -4,10 +4,8 @@ import {
   findBestContract,
   resolveTargetSkin,
 } from '../contracts/contractBuilder';
-import { generateAIRecommendation, type AIRecommendation } from './aiAdvisor';
-import { getAllSkins, refreshCatalog } from '../data/collections';
+import { refreshCatalog } from '../data/collections';
 import { analyzeMinLossScenario } from '../math/ev';
-import { simulateContracts } from '../simulations/monteCarlo';
 import { db } from '../models/database';
 import type {
   MinLossAnalysis,
@@ -15,7 +13,8 @@ import type {
   TargetSearchParams,
   TradeUpContract,
 } from '../models/types';
-import { normalizeSkinName } from '../utils/format';
+import { simulateContracts } from '../simulations/monteCarlo';
+import { generateAIRecommendation, type AIRecommendation } from './aiAdvisor';
 
 export interface TradeUpSearchResult {
   targetSkin: ReturnType<typeof resolveTargetSkin>;
@@ -31,21 +30,6 @@ export interface TradeUpSearchResult {
  * Orquestra busca, otimização e persistência.
  */
 export class TradeUpService {
-  /** Busca skins para autocomplete */
-  searchSkins(query: string, stattrak?: boolean) {
-    const normalized = normalizeSkinName(query);
-    if (!normalized) return getAllSkins().slice(0, 20);
-
-    return getAllSkins()
-      .filter((s) => {
-        const matchName = normalizeSkinName(s.name).includes(normalized);
-        const matchSt = stattrak === undefined || s.stattrak === stattrak;
-        const notSouvenir = !s.souvenir;
-        return matchName && matchSt && notSouvenir && s.rarity !== 'consumer' && s.rarity !== 'industrial';
-      })
-      .slice(0, 15);
-  }
-
   /** Gera os 3 contratos otimizados */
   async search(params: TargetSearchParams): Promise<TradeUpSearchResult> {
     await refreshCatalog();
@@ -68,7 +52,7 @@ export class TradeUpService {
     db.saveContractHistory(params, contracts);
 
     const collections = [...new Set(
-      contracts.flatMap((c) => c.collectionsUsed),
+      contracts.flatMap((contract) => contract.collectionsUsed),
     )];
 
     const aiRecommendation = generateAIRecommendation(contracts, params.budget, params.mode);

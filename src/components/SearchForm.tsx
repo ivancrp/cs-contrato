@@ -1,13 +1,11 @@
 import { useState } from 'react';
-import type { Marketplace, OptimizationMode, TargetSearchParams, WearTier } from '../models/types';
-import { Autocomplete } from './Autocomplete';
+import type { Marketplace, OptimizationMode, TargetSearchParams, WearTier, SkinItem } from '../models/types';
+import { SkinAutocomplete } from './SkinAutocomplete';
 import { MarketFilter } from './MarketFilter';
-import type { SkinItem } from '../models/types';
 
 interface SearchFormProps {
   onSearch: (params: TargetSearchParams) => void;
   onFindBest: (params: TargetSearchParams) => void;
-  onSearchSkins: (query: string, stattrak: boolean) => SkinItem[];
   loading: boolean;
 }
 
@@ -22,10 +20,10 @@ const WEAR_OPTIONS: WearTier[] = [
 export function SearchForm({
   onSearch,
   onFindBest,
-  onSearchSkins,
   loading,
 }: SearchFormProps) {
   const [skinName, setSkinName] = useState('M4A1-S | Black Lotus');
+  const [selectedSkin, setSelectedSkin] = useState<SkinItem | null>(null);
   const [stattrak, setStattrak] = useState(true);
   const [wear, setWear] = useState<WearTier>('Factory New');
   const [maxFloat, setMaxFloat] = useState(0.07);
@@ -33,9 +31,10 @@ export function SearchForm({
   const [marketplace, setMarketplace] = useState<Marketplace>('all');
   const [mode, setMode] = useState<OptimizationMode>('balanced');
 
-  const buildParams = (): TargetSearchParams => ({
-    skinName,
-    stattrak,
+  const buildParams = (skin?: SkinItem | null): TargetSearchParams => ({
+    skinName: skin?.name ?? skinName,
+    targetSkinId: skin?.id ?? selectedSkin?.id,
+    stattrak: skin?.stattrak ?? stattrak,
     wear,
     maxFloat,
     budget,
@@ -43,30 +42,38 @@ export function SearchForm({
     mode,
   });
 
-  const suggestions = onSearchSkins(skinName, stattrak);
+  const handleSkinSelect = (skin: SkinItem) => {
+    setSelectedSkin(skin);
+    setSkinName(skin.name);
+    setStattrak(skin.stattrak);
+    onSearch(buildParams(skin));
+  };
 
   return (
     <form
       className="search-form card"
-      onSubmit={(e) => {
-        e.preventDefault();
+      onSubmit={(event) => {
+        event.preventDefault();
         onSearch(buildParams());
       }}
     >
       <h2>Configurar Trade Up</h2>
+      <p className="search-form-hint">
+        Pesquise a skin alvo na API Steam, selecione na lista e veja os melhores contratos.
+      </p>
 
       <div className="form-grid">
         <label>
           Skin alvo
-          <Autocomplete
+          <SkinAutocomplete
             value={skinName}
-            onChange={setSkinName}
-            onSelect={(skin) => {
-              setSkinName(skin.name);
-              setStattrak(skin.stattrak);
+            stattrak={stattrak}
+            onChange={(value) => {
+              setSkinName(value);
+              setSelectedSkin(null);
             }}
-            suggestions={suggestions}
-            placeholder="Ex: M4A1-S | Black Lotus"
+            onSelect={handleSkinSelect}
+            placeholder="Digite para buscar na API Steam..."
           />
         </label>
 
@@ -74,7 +81,10 @@ export function SearchForm({
           Versão
           <select
             value={stattrak ? 'st' : 'normal'}
-            onChange={(e) => setStattrak(e.target.value === 'st')}
+            onChange={(event) => {
+              setStattrak(event.target.value === 'st');
+              setSelectedSkin(null);
+            }}
           >
             <option value="st">StatTrak™</option>
             <option value="normal">Normal</option>
@@ -83,9 +93,9 @@ export function SearchForm({
 
         <label>
           Wear desejado
-          <select value={wear} onChange={(e) => setWear(e.target.value as WearTier)}>
-            {WEAR_OPTIONS.map((w) => (
-              <option key={w} value={w}>{w}</option>
+          <select value={wear} onChange={(event) => setWear(event.target.value as WearTier)}>
+            {WEAR_OPTIONS.map((option) => (
+              <option key={option} value={option}>{option}</option>
             ))}
           </select>
         </label>
@@ -98,7 +108,7 @@ export function SearchForm({
             min="0"
             max="1"
             value={maxFloat}
-            onChange={(e) => setMaxFloat(parseFloat(e.target.value))}
+            onChange={(event) => setMaxFloat(parseFloat(event.target.value))}
           />
         </label>
 
@@ -108,7 +118,7 @@ export function SearchForm({
             type="number"
             min="1"
             value={budget}
-            onChange={(e) => setBudget(parseFloat(e.target.value))}
+            onChange={(event) => setBudget(parseFloat(event.target.value))}
           />
         </label>
 
@@ -116,7 +126,7 @@ export function SearchForm({
           Modo
           <select
             value={mode}
-            onChange={(e) => setMode(e.target.value as OptimizationMode)}
+            onChange={(event) => setMode(event.target.value as OptimizationMode)}
           >
             <option value="balanced">Equilibrado</option>
             <option value="low_cost">Menor custo</option>

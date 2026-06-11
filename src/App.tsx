@@ -83,7 +83,6 @@ function App() {
         <SearchForm
           onSearch={handleSearch}
           onFindBest={handleFindBest}
-          onSearchSkins={(q, st) => tradeUpService.searchSkins(q, st)}
           loading={loading}
         />
 

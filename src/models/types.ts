@@ -139,6 +139,8 @@ export interface TradeUpContract {
 
 export interface TargetSearchParams {
   skinName: string;
+  /** ID exato da skin selecionada no autocomplete (prioridade sobre skinName). */
+  targetSkinId?: string;
   stattrak: boolean;
   wear: WearTier;
   maxFloat: number;

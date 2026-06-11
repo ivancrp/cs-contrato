@@ -12,6 +12,14 @@ export function getAllSkins(): SkinItem[] {
   return getCollections().flatMap((collection) => collection.items);
 }
 
+export function getCollectionName(collectionId: string): string {
+  return getCollections().find((collection) => collection.id === collectionId)?.name ?? collectionId;
+}
+
+export function findSkinById(id: string): SkinItem | undefined {
+  return getAllSkins().find((skin) => skin.id === id);
+}
+
 function rankSkinMatch(skin: SkinItem, normalized: string): number {
   const name = skin.name.toLowerCase();
   if (name === normalized) return 0;
