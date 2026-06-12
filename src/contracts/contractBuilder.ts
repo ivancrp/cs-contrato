@@ -14,7 +14,6 @@ import { validateContractInputs, assertValidContractInputs } from '../math/contr
 import type {
   ContractInput,
   MarketListing,
-  OptimizationMode,
   SkinItem,
   TargetSearchParams,
   TradeUpContract,
