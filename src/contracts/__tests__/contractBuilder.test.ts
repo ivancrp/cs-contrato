@@ -77,4 +77,16 @@ describe('findInputCandidates', () => {
     expect(candidateIds.has(searingRage!.id)).toBe(true);
     expect(candidateIds.has(amberFade!.id)).toBe(false);
   });
+
+  it('exclui skins de coleções limitadas para M4A1-S Fade', () => {
+    const fade = findSkinByName('M4A1-S | Fade', false);
+    const knight = findSkinByName('M4A1-S | Knight', false);
+    expect(fade).toBeDefined();
+    expect(knight).toBeDefined();
+
+    const candidates = findInputCandidates(fade!, 0.07);
+    const candidateIds = new Set(candidates.map((skin) => skin.id));
+
+    expect(candidateIds.has(knight!.id)).toBe(false);
+  });
 });

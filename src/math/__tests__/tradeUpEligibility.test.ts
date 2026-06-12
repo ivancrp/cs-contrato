@@ -32,4 +32,24 @@ describe('isValidTradeUpInput', () => {
       isValidTradeUpInput(searingRage!, covertTarget!, getCollections()),
     ).toBe(true);
   });
+
+  it('rejeita skins de coleção limitada para M4A1-S Fade', () => {
+    const fade = findSkinByName('M4A1-S | Fade', false);
+    const knight = findSkinByName('M4A1-S | Knight', false);
+    const mjolnir = findSkinByName('Negev | Mjölnir', false);
+    const wildLily = findSkinByName('MP9 | Wild Lily', false);
+    const rainbowSpoon = findSkinByName('Galil AR | Rainbow Spoon', false);
+
+    expect(fade).toBeDefined();
+    expect(knight).toBeDefined();
+    expect(mjolnir).toBeDefined();
+    expect(wildLily).toBeDefined();
+    expect(rainbowSpoon).toBeDefined();
+
+    const collections = getCollections();
+    expect(isValidTradeUpInput(knight!, fade!, collections)).toBe(false);
+    expect(isValidTradeUpInput(mjolnir!, fade!, collections)).toBe(false);
+    expect(isValidTradeUpInput(wildLily!, fade!, collections)).toBe(false);
+    expect(isValidTradeUpInput(rainbowSpoon!, fade!, collections)).toBe(true);
+  });
 });

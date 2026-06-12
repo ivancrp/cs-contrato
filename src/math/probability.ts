@@ -1,8 +1,17 @@
+import { isTradeUpEligibleInputCollection } from '../data/tradeUpCollections';
 import type { Collection, ContractInput, ContractOutput, Rarity, SkinItem } from '../models/types';
 import { getNextRarity } from '../utils/rarity';
 import { calculateExpectedFloatForOutput } from './float';
 import { floatToWear } from './wear';
 import { CONTRACT_INPUT_SIZE } from './contractRules';
+
+function getTargetCollectionIds(targetSkin: SkinItem, collections: Collection[]): Set<string> {
+  return new Set(
+    collections
+      .filter((collection) => collection.items.some((item) => item.id === targetSkin.id))
+      .map((collection) => collection.id),
+  );
+}
 
 /** Coleção possui skin de saída no tier alvo (ex.: Covert para entradas Classified). */
 export function collectionHasTradeUpOutput(
@@ -27,6 +36,11 @@ export function isValidTradeUpInput(
 ): boolean {
   const collection = collections.find((entry) => entry.id === item.collectionId);
   if (!collection) return false;
+
+  const targetCollectionIds = getTargetCollectionIds(targetSkin, collections);
+  if (!isTradeUpEligibleInputCollection(item.collectionId, targetCollectionIds)) {
+    return false;
+  }
 
   return collectionHasTradeUpOutput(
     collection,

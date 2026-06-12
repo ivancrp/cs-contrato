@@ -1,4 +1,5 @@
 import { getCollections } from '../data/collections';
+import { isTradeUpEligibleInputCollection } from '../data/tradeUpCollections';
 import type { ContractInput, Rarity, SkinItem } from '../models/types';
 import { collectionHasTradeUpOutput, getInputRarityForTarget, isValidTradeUpInput } from './probability';
 
@@ -101,10 +102,22 @@ export function validateContractInputs(
   }
 
   const collections = getCollections();
+  const targetCollectionIds = new Set(
+    collections
+      .filter((collection) => collection.items.some((item) => item.id === targetSkin.id))
+      .map((collection) => collection.id),
+  );
   const collectionIds = new Set(inputs.map((input) => input.item.collectionId));
   for (const collectionId of collectionIds) {
     const collection = collections.find((entry) => entry.id === collectionId);
     if (!collection) continue;
+
+    if (!isTradeUpEligibleInputCollection(collectionId, targetCollectionIds)) {
+      return {
+        valid: false,
+        reason: `Coleção "${collection.name}" é limitada e não pode ser usada em trade up.`,
+      };
+    }
 
     if (
       !collectionHasTradeUpOutput(

@@ -131,9 +131,7 @@ export async function buildCandidatePool(
         params.marketplace,
       );
 
-      if (price <= 0) {
-        price = priceService.getFallbackPrice(item.rarity, f, item.stattrak);
-      }
+      if (price <= 0) continue;
 
       listings.push({
         listingId: `${item.id}-${f}-${params.marketplace}`,

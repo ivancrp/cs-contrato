@@ -95,6 +95,11 @@ class PriceService {
     return this.getPriceForFloat(skinName, stattrak, expectedFloat, marketplace);
   }
 
+  hasMarketPrice(skinName: string, stattrak: boolean, wear: WearTier): boolean {
+    const hash = buildMarketHashName(skinName, stattrak, wear);
+    return this.prices.has(hash);
+  }
+
   /** Fallback síncrono quando API ainda não carregou */
   getFallbackPrice(rarity: Rarity, float: number, stattrak: boolean): number {
     const stMult = stattrak ? 2.5 : 1;
