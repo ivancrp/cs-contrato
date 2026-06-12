@@ -2,6 +2,7 @@ import {
   buildMinLossContract,
   buildThreeContracts,
   findBestContract,
+  prepareContractSearch,
   resolveTargetSkin,
 } from '../contracts/contractBuilder';
 import { refreshCatalog } from '../data/collections';
@@ -54,14 +55,15 @@ export class TradeUpService {
   /** Gera múltiplos contratos otimizados automaticamente */
   async search(params: TargetSearchParams): Promise<TradeUpSearchResult> {
     await refreshCatalog();
-    const targetSkin = resolveTargetSkin(params);
+    const prepared = await prepareContractSearch(params);
+    const targetSkin = prepared.targetSkin;
 
-    const tierContracts = await buildThreeContracts(params);
+    const tierContracts = await buildThreeContracts(params, prepared);
 
     let minLossContract: TradeUpContract | undefined;
     let minLossAnalysis: MinLossAnalysis | undefined;
     try {
-      minLossContract = await buildMinLossContract(params);
+      minLossContract = await buildMinLossContract(params, prepared);
       minLossAnalysis = analyzeMinLossScenario(
         minLossContract.outputs,
         minLossContract.evMetrics.totalCost,

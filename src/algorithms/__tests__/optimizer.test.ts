@@ -11,6 +11,6 @@ describe('selectAlgorithm', () => {
   });
 
   it('usa genetic para pools grandes', () => {
-    expect(selectAlgorithm(100)).toBe('genetic');
+    expect(selectAlgorithm(120)).toBe('genetic');
   });
 });

@@ -56,5 +56,5 @@ export function findSkinsByName(name: string, stattrak: boolean): SkinItem[] {
 }
 
 export function refreshCatalog(): Promise<void> {
-  return catalogStore.refresh(true);
+  return catalogStore.refresh();
 }

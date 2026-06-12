@@ -1,15 +1,18 @@
 import type { AlgorithmType } from '../models/types';
+import { yieldToMain } from '../utils/yieldToMain';
 import type { Combination, EvaluationContext, OptimizationResult } from './types';
 import { combinationCost, generateTierSeeds, mutateCombination, randomCombination } from './heuristic';
+
+const YIELD_EVERY_ITERATIONS = 400;
 
 /**
  * Simulated Annealing para pools médios.
  * Explora espaço de soluções aceitando piores estados com probabilidade decrescente.
  */
-export function simulatedAnnealingOptimize(
+export async function simulatedAnnealingOptimize(
   ctx: EvaluationContext,
-  iterations = 5000,
-): OptimizationResult | null {
+  iterations = 2000,
+): Promise<OptimizationResult | null> {
   const poolSize = ctx.candidates.length;
   if (poolSize === 0) return null;
 
@@ -44,6 +47,10 @@ export function simulatedAnnealingOptimize(
     }
 
     temperature *= coolingRate;
+
+    if (i % YIELD_EVERY_ITERATIONS === 0) {
+      await yieldToMain();
+    }
   }
 
   return best;

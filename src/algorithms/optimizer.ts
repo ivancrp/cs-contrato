@@ -7,7 +7,7 @@ import { simulatedAnnealingOptimize } from './simulatedAnnealing';
 import type { CandidateListing, Combination, EvaluationContext, OptimizationResult } from './types';
 
 const BRANCH_BOUND_THRESHOLD = 25;
-const SA_THRESHOLD = 80;
+const SA_THRESHOLD = 100;
 
 export interface TierOptimizationConfig {
   mode: OptimizationMode;
@@ -29,10 +29,10 @@ export function selectAlgorithm(candidateCount: number): AlgorithmType {
   return 'genetic';
 }
 
-export function optimizeContract(ctx: EvaluationContext): {
+export async function optimizeContract(ctx: EvaluationContext): Promise<{
   result: OptimizationResult | null;
   algorithm: AlgorithmType;
-} {
+}> {
   const algorithm = selectAlgorithm(ctx.candidates.length);
 
   let result: OptimizationResult | null = null;
@@ -42,10 +42,10 @@ export function optimizeContract(ctx: EvaluationContext): {
       result = branchAndBoundOptimize(ctx);
       break;
     case 'simulated_annealing':
-      result = simulatedAnnealingOptimize(ctx);
+      result = await simulatedAnnealingOptimize(ctx);
       break;
     case 'genetic':
-      result = geneticOptimize(ctx);
+      result = await geneticOptimize(ctx);
       break;
     default:
       result = greedyOptimize(ctx);
@@ -228,9 +228,9 @@ function buildLowCostFallback(
   return null;
 }
 
-export function optimizeThreeTiers(
+export async function optimizeThreeTiers(
   baseCtx: EvaluationContext,
-): { result: OptimizationResult; algorithm: AlgorithmType; mode: OptimizationMode }[] {
+): Promise<{ result: OptimizationResult; algorithm: AlgorithmType; mode: OptimizationMode }[]> {
   const results: { result: OptimizationResult; algorithm: AlgorithmType; mode: OptimizationMode }[] = [];
   const usedSignatures = new Set<string>();
   const originalCandidates = baseCtx.candidates;
@@ -248,7 +248,7 @@ export function optimizeThreeTiers(
       })
       .filter((r) => isValidOptimizationResult(r, ctx, config));
 
-    const { result, algorithm } = optimizeContract(ctx);
+    const { result, algorithm } = await optimizeContract(ctx);
     let best =
       result &&
       isValidOptimizationResult({ ...result, candidatePool: [...tierCandidates] }, ctx, config) &&

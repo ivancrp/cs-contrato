@@ -77,8 +77,20 @@ class PriceService {
     marketplace: Marketplace = 'all',
   ): Promise<number> {
     await this.ensureLoaded();
+    return this.getPriceForFloatSync(skinName, stattrak, float, marketplace);
+  }
+
+  getPriceForFloatSync(
+    skinName: string,
+    stattrak: boolean,
+    float: number,
+    marketplace: Marketplace = 'all',
+  ): number {
     const wear = floatToWear(float);
-    const base = await this.getPrice(skinName, stattrak, wear, marketplace);
+    const hash = buildMarketHashName(skinName, stattrak, wear);
+    const base = this.resolvePrice(hash, marketplace);
+    if (base <= 0) return 0;
+
     const bounds = WEAR_BOUNDS[wear];
     const range = bounds.max - bounds.min || 1;
     const position = Math.min(Math.max((float - bounds.min) / range, 0), 1);
@@ -92,7 +104,17 @@ class PriceService {
     expectedFloat: number,
     marketplace: Marketplace = 'all',
   ): Promise<number> {
-    return this.getPriceForFloat(skinName, stattrak, expectedFloat, marketplace);
+    await this.ensureLoaded();
+    return this.getOutputPriceSync(skinName, stattrak, expectedFloat, marketplace);
+  }
+
+  getOutputPriceSync(
+    skinName: string,
+    stattrak: boolean,
+    expectedFloat: number,
+    marketplace: Marketplace = 'all',
+  ): number {
+    return this.getPriceForFloatSync(skinName, stattrak, expectedFloat, marketplace);
   }
 
   hasMarketPrice(skinName: string, stattrak: boolean, wear: WearTier): boolean {

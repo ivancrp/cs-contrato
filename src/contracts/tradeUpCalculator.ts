@@ -119,7 +119,8 @@ export async function calculateContract(
     if (!item) continue;
     const expectedFloat = calculateExpectedFloatForOutput(inputs, item);
     const key = `${skinId}-${expectedFloat.toFixed(4)}`;
-    priceCache.set(key, await resolvePrice(skinId, expectedFloat));
+    const resolved = resolvePrice(skinId, expectedFloat);
+    priceCache.set(key, resolved instanceof Promise ? await resolved : resolved);
   }
 
   const priceLookupSync = (itemId: string, expectedFloat: number): number => {

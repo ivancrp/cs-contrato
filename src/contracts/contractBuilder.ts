@@ -33,8 +33,27 @@ const MODE_TO_TIER: Record<OptimizationMode, TradeUpContract['tier']> = {
   min_loss: 'min_loss',
 };
 
-const FLOAT_SAMPLES = [0.01, 0.03, 0.05, 0.07, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35];
-const MAX_CANDIDATE_POOL = 80;
+const FLOAT_SAMPLES = [0.01, 0.05, 0.07, 0.1, 0.15, 0.25];
+const MAX_CANDIDATE_POOL = 60;
+
+let cachedItemsById: Map<string, SkinItem> | null = null;
+
+function getItemsById(): Map<string, SkinItem> {
+  if (!cachedItemsById) {
+    cachedItemsById = new Map(
+      getCollections().flatMap((collection) => collection.items).map((item) => [item.id, item]),
+    );
+  }
+  return cachedItemsById;
+}
+
+function getItemById(itemId: string): SkinItem | undefined {
+  return getItemsById().get(itemId);
+}
+
+export function invalidateContractCaches(): void {
+  cachedItemsById = null;
+}
 
 function trimCandidatePool(listings: CandidateListing[]): CandidateListing[] {
   if (listings.length <= MAX_CANDIDATE_POOL) return listings;
@@ -124,7 +143,7 @@ export async function buildCandidatePool(
     );
 
     for (const f of floats) {
-      let price = await priceService.getPriceForFloat(
+      const price = priceService.getPriceForFloatSync(
         item.name,
         item.stattrak,
         f,
@@ -157,16 +176,12 @@ export function combinationToInputs(
   candidates: CandidateListing[],
   marketplace: TargetSearchParams['marketplace'],
 ): ContractInput[] {
-  const itemMap = new Map(
-    getCollections().flatMap((c) => c.items).map((i) => [i.id, i]),
-  );
-
   return combination.map((idx) => {
     const candidate = candidates[idx];
     if (!candidate) {
       throw new Error(`Candidato inválido no índice ${idx}.`);
     }
-    const item = itemMap.get(candidate.itemId);
+    const item = getItemById(candidate.itemId);
     if (!item) {
       throw new Error(`Skin não encontrada: ${candidate.itemId}.`);
     }
@@ -192,14 +207,12 @@ export function combinationToInputs(
   });
 }
 
-async function createPriceLookup(marketplace: TargetSearchParams['marketplace']) {
-  await priceService.preload();
-
-  return async (itemId: string, expectedFloat: number): Promise<number> => {
-    const item = getCollections().flatMap((c) => c.items).find((i) => i.id === itemId);
+function createSyncPriceLookup(marketplace: TargetSearchParams['marketplace']) {
+  return (itemId: string, expectedFloat: number): number => {
+    const item = getItemById(itemId);
     if (!item) return 0;
 
-    const price = await priceService.getOutputPrice(
+    const price = priceService.getOutputPriceSync(
       item.name,
       item.stattrak,
       expectedFloat,
@@ -221,31 +234,22 @@ export async function createEvaluationContext(
 ): Promise<EvaluationContext> {
   const resolvedParams = resolveSearchDefaults(params, candidates);
   const maxFloat = resolvedParams.maxFloat;
-  const priceLookup = await createPriceLookup(resolvedParams.marketplace);
+  const priceLookup = createSyncPriceLookup(resolvedParams.marketplace);
   const priceCache = new Map<string, number>();
 
   const syncPriceLookup = (itemId: string, expectedFloat: number): number => {
     const key = `${itemId}-${expectedFloat.toFixed(4)}`;
     if (!priceCache.has(key)) {
-      const item = getCollections().flatMap((c) => c.items).find((i) => i.id === itemId);
-      if (!item) {
-        priceCache.set(key, 0);
-      } else {
-        priceCache.set(
-          key,
-          priceService.getFallbackPrice(item.rarity, expectedFloat, item.stattrak),
-        );
-      }
+      priceCache.set(key, priceLookup(itemId, expectedFloat));
     }
     return priceCache.get(key) ?? 0;
   };
 
-  for (const candidate of candidates.slice(0, 40)) {
-    const item = getCollections().flatMap((c) => c.items).find((i) => i.id === candidate.itemId);
+  for (const candidate of candidates) {
+    const item = getItemById(candidate.itemId);
     if (item) {
       const key = `${item.id}-${candidate.float.toFixed(4)}`;
-      const price = await priceLookup(item.id, candidate.float);
-      priceCache.set(key, price);
+      priceCache.set(key, priceLookup(item.id, candidate.float));
     }
   }
 
@@ -254,9 +258,7 @@ export async function createEvaluationContext(
   );
   for (const item of outputItems) {
     const key = `${item.id}-${maxFloat.toFixed(4)}`;
-    if (!priceCache.has(key)) {
-      priceCache.set(key, await priceLookup(item.id, maxFloat));
-    }
+    priceCache.set(key, priceLookup(item.id, maxFloat));
   }
 
   const ctx: EvaluationContext = {
@@ -319,46 +321,86 @@ export async function createEvaluationContext(
   return ctx;
 }
 
+export interface ContractSearchContext {
+  targetSkin: SkinItem;
+  resolvedParams: ReturnType<typeof resolveSearchDefaults>;
+  candidates: CandidateListing[];
+  baseCtx: EvaluationContext;
+  priceLookup: ReturnType<typeof createSyncPriceLookup>;
+}
+
+/** Prepara pool e contexto de otimização uma única vez por busca. */
+export async function prepareContractSearch(
+  params: TargetSearchParams,
+): Promise<ContractSearchContext> {
+  invalidateContractCaches();
+  await priceService.preload();
+
+  const targetSkin = resolveTargetSkin(params);
+  const draftParams = resolveSearchDefaults(params);
+  const candidates = await buildCandidatePool(targetSkin, draftParams);
+  if (candidates.length === 0) {
+    throw new Error('Nenhum candidato de entrada encontrado');
+  }
+
+  const resolvedParams = resolveSearchDefaults(draftParams, candidates);
+  const baseCtx = await createEvaluationContext(targetSkin, candidates, resolvedParams);
+
+  return {
+    targetSkin,
+    resolvedParams,
+    candidates,
+    baseCtx,
+    priceLookup: createSyncPriceLookup(resolvedParams.marketplace),
+  };
+}
+
+async function contractFromOptimizationResult(
+  result: import('../algorithms/types').OptimizationResult,
+  algorithm: import('../models/types').AlgorithmType,
+  tier: TradeUpContract['tier'],
+  tierLabel: string,
+  prepared: ContractSearchContext,
+): Promise<TradeUpContract> {
+  const inputs = combinationToInputs(
+    result.combination,
+    result.candidatePool,
+    prepared.resolvedParams.marketplace,
+  );
+  assertValidContractInputs(inputs, prepared.targetSkin);
+
+  return calculateContract(
+    inputs,
+    prepared.targetSkin,
+    prepared.resolvedParams.marketplace,
+    tier,
+    tierLabel,
+    algorithm,
+    scoreToStars(result.score),
+    prepared.priceLookup,
+  );
+}
+
 /**
  * Gera os 3 contratos sugeridos ($, $$, $$$).
  */
 export async function buildThreeContracts(
   params: TargetSearchParams,
+  prepared?: ContractSearchContext,
 ): Promise<TradeUpContract[]> {
-  const targetSkin = resolveTargetSkin(params);
-  const draftParams = resolveSearchDefaults(params);
-
-  const candidates = await buildCandidatePool(targetSkin, draftParams);
-  if (candidates.length === 0) throw new Error('Nenhum candidato de entrada encontrado');
-
-  const resolvedParams = resolveSearchDefaults(draftParams, candidates);
-  const baseCtx = await createEvaluationContext(targetSkin, candidates, resolvedParams);
-  const tierResults = optimizeThreeTiers(baseCtx);
-  const priceLookup = await createPriceLookup(resolvedParams.marketplace);
+  const ctx = prepared ?? await prepareContractSearch(params);
+  const tierResults = await optimizeThreeTiers(ctx.baseCtx);
 
   return Promise.all(
-    tierResults.map(async (tr) => {
-      const tier = MODE_TO_TIER[tr.mode];
-      const inputs = combinationToInputs(
-        tr.result.combination,
-        tr.result.candidatePool,
-        resolvedParams.marketplace,
-      );
-      assertValidContractInputs(inputs, targetSkin);
-
-      const aiScore = scoreToStars(tr.result.score);
-      const contract = await calculateContract(
-        inputs,
-        targetSkin,
-        resolvedParams.marketplace,
-        tier,
-        TIER_LABELS[tier],
+    tierResults.map((tr) =>
+      contractFromOptimizationResult(
+        tr.result,
         tr.algorithm,
-        aiScore,
-        priceLookup,
-      );
-      return contract;
-    }),
+        MODE_TO_TIER[tr.mode],
+        TIER_LABELS[MODE_TO_TIER[tr.mode]],
+        ctx,
+      ),
+    ),
   );
 }
 
@@ -367,37 +409,22 @@ export async function buildThreeContracts(
  */
 export async function findBestContract(
   params: TargetSearchParams,
+  prepared?: ContractSearchContext,
 ): Promise<TradeUpContract> {
-  const targetSkin = resolveTargetSkin(params);
-  const draftParams = resolveSearchDefaults(params);
+  const ctx = prepared ?? await prepareContractSearch(params);
+  const evalCtx: EvaluationContext = { ...ctx.baseCtx, mode: 'high_chance' };
+  const { result, algorithm } = await optimizeContract(evalCtx);
 
-  const candidates = await buildCandidatePool(targetSkin, draftParams);
-  const resolvedParams = resolveSearchDefaults(draftParams, candidates);
-  const ctx = await createEvaluationContext(targetSkin, candidates, {
-    ...resolvedParams,
-    mode: 'high_chance',
-  });
-
-  const { result, algorithm } = optimizeContract(ctx);
   if (!result || result.score === Number.NEGATIVE_INFINITY) {
     throw new Error('Não foi possível encontrar um contrato válido');
   }
 
-  const inputs = combinationToInputs(result.combination, result.candidatePool, resolvedParams.marketplace);
-  assertValidContractInputs(inputs, targetSkin);
-
-  const aiScore = scoreToStars(result.score);
-  const priceLookup = await createPriceLookup(resolvedParams.marketplace);
-
-  return calculateContract(
-    inputs,
-    targetSkin,
-    resolvedParams.marketplace,
+  return contractFromOptimizationResult(
+    result,
+    algorithm,
     'ai_best',
     TIER_LABELS.ai_best,
-    algorithm,
-    aiScore,
-    priceLookup,
+    ctx,
   );
 }
 
@@ -406,36 +433,21 @@ export async function findBestContract(
  */
 export async function buildMinLossContract(
   params: TargetSearchParams,
+  prepared?: ContractSearchContext,
 ): Promise<TradeUpContract> {
-  const targetSkin = resolveTargetSkin(params);
-  const draftParams = resolveSearchDefaults(params);
+  const ctx = prepared ?? await prepareContractSearch(params);
+  const evalCtx: EvaluationContext = { ...ctx.baseCtx, mode: 'min_loss' };
+  const { result, algorithm } = await optimizeContract(evalCtx);
 
-  const candidates = await buildCandidatePool(targetSkin, draftParams);
-  const resolvedParams = resolveSearchDefaults(draftParams, candidates);
-  const ctx = await createEvaluationContext(targetSkin, candidates, {
-    ...resolvedParams,
-    mode: 'min_loss',
-  });
-
-  const { result, algorithm } = optimizeContract(ctx);
   if (!result || result.score === Number.NEGATIVE_INFINITY) {
     throw new Error('Não foi possível encontrar um contrato válido');
   }
 
-  const inputs = combinationToInputs(result.combination, result.candidatePool, resolvedParams.marketplace);
-  assertValidContractInputs(inputs, targetSkin);
-
-  const aiScore = scoreToStars(result.score);
-  const priceLookup = await createPriceLookup(resolvedParams.marketplace);
-
-  return calculateContract(
-    inputs,
-    targetSkin,
-    resolvedParams.marketplace,
+  return contractFromOptimizationResult(
+    result,
+    algorithm,
     'min_loss',
     TIER_LABELS.min_loss,
-    algorithm,
-    aiScore,
-    priceLookup,
+    ctx,
   );
 }

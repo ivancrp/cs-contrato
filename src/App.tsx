@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AIRecommendation } from './components/AIRecommendation';
 import { priceService } from './services/priceService';
 import { skinImageService } from './services/skinImageService';
@@ -26,18 +26,24 @@ function App() {
   const [result, setResult] = useState<TradeUpSearchResult | null>(null);
   const [searchParams, setSearchParams] = useState<TargetSearchParams | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const searchSeq = useRef(0);
 
   const handleSearch = async (params: TargetSearchParams) => {
+    const currentSearch = ++searchSeq.current;
     setLoading(true);
     setError(null);
     setSearchParams(params);
     try {
       const res = await tradeUpService.search(params);
+      if (currentSearch !== searchSeq.current) return;
       setResult(res);
     } catch (e) {
+      if (currentSearch !== searchSeq.current) return;
       setError(e instanceof Error ? e.message : 'Erro ao calcular contratos');
     } finally {
-      setLoading(false);
+      if (currentSearch === searchSeq.current) {
+        setLoading(false);
+      }
     }
   };
 

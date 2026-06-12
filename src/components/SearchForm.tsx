@@ -23,7 +23,7 @@ export function SearchForm({
 }: SearchFormProps) {
   const [skinName, setSkinName] = useState('M4A1-S | Black Lotus');
   const [selectedSkin, setSelectedSkin] = useState<SkinItem | null>(null);
-  const [stattrak, setStattrak] = useState(true);
+  const [stattrak, setStattrak] = useState(false);
   const [wear, setWear] = useState<WearTier>('Factory New');
   const [marketplace, setMarketplace] = useState<Marketplace>('all');
 
@@ -40,7 +40,6 @@ export function SearchForm({
     setSelectedSkin(skin);
     setSkinName(skin.name);
     setStattrak(skin.stattrak);
-    onSearch(buildParams(skin));
   };
 
   return (
@@ -71,22 +70,29 @@ export function SearchForm({
           />
         </label>
 
-        <label>
-          Versão
-          <select
-            value={stattrak ? 'st' : 'normal'}
-            onChange={(event) => {
-              setStattrak(event.target.value === 'st');
-              setSelectedSkin(null);
-            }}
-          >
-            <option value="st">StatTrak™</option>
-            <option value="normal">Normal</option>
-          </select>
-        </label>
+        <div className="form-field-stattrak">
+          <span className="field-label">Versão</span>
+          <div className="stattrak-toggle">
+            <span className={`stattrak-toggle-label${!stattrak ? ' active' : ''}`}>Normal</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={stattrak}
+              aria-label="Ativar StatTrak"
+              className={`toggle-switch${stattrak ? ' is-on' : ''}`}
+              onClick={() => {
+                setStattrak((current) => !current);
+                setSelectedSkin(null);
+              }}
+            >
+              <span className="toggle-knob" />
+            </button>
+            <span className={`stattrak-toggle-label${stattrak ? ' active' : ''}`}>StatTrak™</span>
+          </div>
+        </div>
 
         <label>
-          Wear desejado
+          Desgate desejado
           <select value={wear} onChange={(event) => setWear(event.target.value as WearTier)}>
             {WEAR_OPTIONS.map((option) => (
               <option key={option} value={option}>{option}</option>

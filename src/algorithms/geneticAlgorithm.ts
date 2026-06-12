@@ -1,4 +1,5 @@
 import type { AlgorithmType } from '../models/types';
+import { yieldToMain } from '../utils/yieldToMain';
 import type { Combination, EvaluationContext, OptimizationResult } from './types';
 import {
   combinationCost,
@@ -8,15 +9,16 @@ import {
   randomCombination,
 } from './heuristic';
 
-const POPULATION_SIZE = 100;
-const GENERATIONS = 200;
+const POPULATION_SIZE = 48;
+const GENERATIONS = 60;
 const MUTATION_RATE = 0.15;
+const YIELD_EVERY_GENERATIONS = 12;
 
 /**
  * Algoritmo Genético para pools grandes (>80 candidatos).
  * Escala via evolução populacional com elitismo.
  */
-export function geneticOptimize(ctx: EvaluationContext): OptimizationResult | null {
+export async function geneticOptimize(ctx: EvaluationContext): Promise<OptimizationResult | null> {
   const poolSize = ctx.candidates.length;
   if (poolSize === 0) return null;
 
@@ -58,6 +60,10 @@ export function geneticOptimize(ctx: EvaluationContext): OptimizationResult | nu
     }
 
     population = nextGen;
+
+    if (gen % YIELD_EVERY_GENERATIONS === 0) {
+      await yieldToMain();
+    }
   }
 
   return best;
