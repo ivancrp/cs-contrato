@@ -29,6 +29,8 @@ export interface EvaluationContext {
     score: number;
   };
   budget: number;
+  /** Custo de referência das 10 skins mais baratas. */
+  floorCost: number;
   mode: OptimizationMode;
 }
 

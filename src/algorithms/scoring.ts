@@ -15,7 +15,7 @@ const MODE_WEIGHTS: Record<OptimizationMode, ScoreWeights> = {
   low_cost: { ev: 0.12, chance: 0.22, cost: 0.28, risk: 0.1, loss: 0.1, float: 0.08, breakEven: 0.1 },
   balanced: { ev: 0.18, chance: 0.18, cost: 0.18, risk: 0.12, loss: 0.12, float: 0.08, breakEven: 0.14 },
   high_chance: { ev: 0.22, chance: 0.3, cost: 0.08, risk: 0.08, loss: 0.08, float: 0.08, breakEven: 0.16 },
-  min_loss: { ev: 0.12, chance: 0.08, cost: 0.08, risk: 0.22, loss: 0.32, float: 0.05, breakEven: 0.13 },
+  min_loss: { ev: 0.15, chance: 0.06, cost: 0.28, risk: 0.18, loss: 0.25, float: 0.05, breakEven: 0.13 },
 };
 
 export interface ContractScoreInput {

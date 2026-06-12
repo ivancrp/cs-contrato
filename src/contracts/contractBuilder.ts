@@ -1,4 +1,10 @@
-import { optimizeContract, optimizeThreeTiers } from '../algorithms/optimizer';
+import {
+  buildCheapCandidatePool,
+  computeFloorCost,
+  isFeasibleContract,
+} from '../algorithms/candidatePool';
+import { greedyOptimize } from '../algorithms/heuristic';
+import { optimizeAllTiers, optimizeContract } from '../algorithms/optimizer';
 import { calculateContractScore, scoreToStars } from '../algorithms/scoring';
 import type { CandidateListing, Combination, EvaluationContext } from '../algorithms/types';
 import { findSkinById, findSkinByName, getCollections } from '../data/collections';
@@ -20,18 +26,13 @@ import { floatToWear, maxInputFloatForTargetOutput, requiredNormalizedWear, wear
 import { calculateContract, findCollectionsForTarget, findInputCandidates } from './tradeUpCalculator';
 
 const TIER_LABELS: Record<string, string> = {
-  budget: '$ Baixo investimento',
-  balanced: '$$ Investimento médio',
-  premium: '$$$ Maior investimento',
+  budget: '$ Menor custo',
+  one_target: '◎ 1 skin da coleção alvo',
+  float_safe: '◎ Float ideal (econômico)',
+  balanced: '$$ Equilibrado',
+  premium: '$$$ Maior chance',
   ai_best: '★ Melhor Contrato IA',
   min_loss: '🛡 Menor Perda Possível',
-};
-
-const MODE_TO_TIER: Record<OptimizationMode, TradeUpContract['tier']> = {
-  low_cost: 'budget',
-  balanced: 'balanced',
-  high_chance: 'premium',
-  min_loss: 'min_loss',
 };
 
 const FLOAT_SAMPLES = [0.01, 0.05, 0.07, 0.1, 0.15, 0.25];
@@ -58,36 +59,14 @@ export function invalidateContractCaches(): void {
 
 function trimCandidatePool(listings: CandidateListing[]): CandidateListing[] {
   if (listings.length <= MAX_CANDIDATE_POOL) return listings;
-
-  const targetPool = listings.filter((listing) => listing.isTargetCollection);
-  const otherPool = listings.filter((listing) => !listing.isTargetCollection);
-  const merged = [...targetPool];
-
-  for (const listing of otherPool) {
-    if (merged.length >= MAX_CANDIDATE_POOL) break;
-    merged.push(listing);
-  }
-
-  return merged.length >= 10 ? merged : listings.slice(0, MAX_CANDIDATE_POOL);
+  return buildCheapCandidatePool(listings, MAX_CANDIDATE_POOL);
 }
 
-/** Estima orçamento automático a partir do pool de preços. */
+/** Estima teto de orçamento a partir do menor custo viável de 10 skins. */
 export function estimateAutoBudget(candidates: CandidateListing[]): number {
-  if (candidates.length < 10) return 500;
-
-  const sorted = [...candidates].sort((a, b) => a.price - b.price);
-  const floorCost = sorted.slice(0, 10).reduce((sum, candidate) => sum + candidate.price, 0);
-
-  const targetCandidates = sorted.filter((candidate) => candidate.isTargetCollection);
-  const premiumPool = targetCandidates.length >= 10 ? targetCandidates : sorted;
-  const premiumCost = [...premiumPool]
-    .sort((a, b) => b.price - a.price)
-    .slice(0, 10)
-    .reduce((sum, candidate) => sum + candidate.price, 0);
-
-  const estimated = Math.max(premiumCost, floorCost * 2.5) * 1.1;
-  const capped = Math.min(estimated, floorCost * 6);
-  return Math.ceil(Math.max(capped, floorCost));
+  const floorCost = computeFloorCost(candidates);
+  if (floorCost <= 0) return 300;
+  return Math.ceil(floorCost * 2.6);
 }
 
 export function resolveSearchDefaults(
@@ -174,9 +153,9 @@ export async function buildCandidatePool(
 
   return trimCandidatePool(
     listings.sort((a, b) => {
-      const floatDiff = a.floatFitScore - b.floatFitScore;
-      if (Math.abs(floatDiff) > 0.015) return floatDiff;
-      return a.price - b.price;
+      const priceDiff = a.price - b.price;
+      if (Math.abs(priceDiff) > 1) return priceDiff;
+      return a.floatFitScore - b.floatFitScore;
     }),
   );
 }
@@ -274,10 +253,13 @@ export async function createEvaluationContext(
     priceCache.set(key, priceLookup(item.id, maxFloat));
   }
 
+  const floorCost = computeFloorCost(candidates);
+
   const ctx: EvaluationContext = {
     candidates,
     targetSkin,
     budget: resolvedParams.budget,
+    floorCost,
     mode: resolvedParams.mode,
     evaluate: (combination: Combination) => {
       const inputs = combinationToInputs(combination, ctx.candidates, resolvedParams.marketplace);
@@ -402,15 +384,15 @@ export async function buildThreeContracts(
   prepared?: ContractSearchContext,
 ): Promise<TradeUpContract[]> {
   const ctx = prepared ?? await prepareContractSearch(params);
-  const tierResults = await optimizeThreeTiers(ctx.baseCtx);
+  const tierResults = await optimizeAllTiers(ctx.baseCtx);
 
   return Promise.all(
     tierResults.map((tr) =>
       contractFromOptimizationResult(
         tr.result,
         tr.algorithm,
-        MODE_TO_TIER[tr.mode],
-        TIER_LABELS[MODE_TO_TIER[tr.mode]],
+        tr.tierId,
+        tr.label,
         ctx,
       ),
     ),
@@ -449,11 +431,35 @@ export async function buildMinLossContract(
   prepared?: ContractSearchContext,
 ): Promise<TradeUpContract> {
   const ctx = prepared ?? await prepareContractSearch(params);
-  const evalCtx: EvaluationContext = { ...ctx.baseCtx, mode: 'min_loss' };
-  const { result, algorithm } = await optimizeContract(evalCtx);
+  const cheapPool = buildCheapCandidatePool(ctx.candidates);
+  const floorCost = computeFloorCost(ctx.candidates);
 
-  if (!result || result.score === Number.NEGATIVE_INFINITY) {
-    throw new Error('Não foi possível encontrar um contrato válido');
+  const evalCtx: EvaluationContext = {
+    ...ctx.baseCtx,
+    candidates: cheapPool,
+    budget: Math.ceil(floorCost * 1.5),
+    floorCost,
+    mode: 'min_loss',
+  };
+
+  const greedy = greedyOptimize(evalCtx);
+  let result = greedy ? { ...greedy, candidatePool: [...cheapPool] } : null;
+  let algorithm: TradeUpContract['algorithmUsed'] = 'heuristic';
+
+  if (!result || !isFeasibleContract(result, evalCtx.budget, floorCost, 1.55, 0.45)) {
+    const optimized = await optimizeContract(evalCtx);
+    algorithm = optimized.algorithm;
+    if (optimized.result) {
+      result = { ...optimized.result, candidatePool: [...cheapPool] };
+    }
+  }
+
+  if (
+    !result ||
+    result.score === Number.NEGATIVE_INFINITY ||
+    !isFeasibleContract(result, evalCtx.budget, floorCost, 1.55, 0.45)
+  ) {
+    throw new Error('Não foi possível encontrar um contrato viável de menor perda');
   }
 
   return contractFromOptimizationResult(

@@ -1,5 +1,11 @@
-import type { AlgorithmType, OptimizationMode } from '../models/types';
+import type { AlgorithmType, OptimizationMode, TradeUpContract } from '../models/types';
 import { validateContractInputs } from '../math/contractRules';
+import {
+  buildBalancedCandidatePool,
+  buildCheapCandidatePool,
+  buildFloatFocusedPool,
+  isFeasibleContract,
+} from './candidatePool';
 import { branchAndBoundOptimize } from './branchAndBound';
 import { geneticOptimize } from './geneticAlgorithm';
 import { CONTRACT_SIZE, generateTierSeeds, greedyOptimize } from './heuristic';
@@ -10,17 +16,79 @@ const BRANCH_BOUND_THRESHOLD = 25;
 const SA_THRESHOLD = 100;
 
 export interface TierOptimizationConfig {
+  tierId: TradeUpContract['tier'];
+  label: string;
   mode: OptimizationMode;
-  budgetRatio: number;
+  budgetMultiplier: number;
   targetRatio: number;
   minTargetCount: number;
   maxTargetCount: number;
+  poolType: 'cheap' | 'float' | 'full';
+  maxCostMultiplier: number;
+  minEvRatio: number;
 }
 
 export const TIER_CONFIGS: TierOptimizationConfig[] = [
-  { mode: 'low_cost', budgetRatio: 0.65, targetRatio: 0.1, minTargetCount: 1, maxTargetCount: 4 },
-  { mode: 'balanced', budgetRatio: 0.8, targetRatio: 0.4, minTargetCount: 1, maxTargetCount: 7 },
-  { mode: 'high_chance', budgetRatio: 1.0, targetRatio: 0.7, minTargetCount: 1, maxTargetCount: 10 },
+  {
+    tierId: 'budget',
+    label: '$ Menor custo',
+    mode: 'low_cost',
+    budgetMultiplier: 1.45,
+    targetRatio: 0.1,
+    minTargetCount: 1,
+    maxTargetCount: 3,
+    poolType: 'cheap',
+    maxCostMultiplier: 1.55,
+    minEvRatio: 0.45,
+  },
+  {
+    tierId: 'one_target',
+    label: '◎ 1 skin da coleção alvo',
+    mode: 'low_cost',
+    budgetMultiplier: 1.35,
+    targetRatio: 0.1,
+    minTargetCount: 1,
+    maxTargetCount: 1,
+    poolType: 'cheap',
+    maxCostMultiplier: 1.45,
+    minEvRatio: 0.45,
+  },
+  {
+    tierId: 'float_safe',
+    label: '◎ Float ideal (econômico)',
+    mode: 'balanced',
+    budgetMultiplier: 1.65,
+    targetRatio: 0.2,
+    minTargetCount: 1,
+    maxTargetCount: 4,
+    poolType: 'float',
+    maxCostMultiplier: 1.75,
+    minEvRatio: 0.48,
+  },
+  {
+    tierId: 'balanced',
+    label: '$$ Equilibrado',
+    mode: 'balanced',
+    budgetMultiplier: 2.0,
+    targetRatio: 0.4,
+    minTargetCount: 1,
+    maxTargetCount: 7,
+    poolType: 'full',
+    maxCostMultiplier: 2.2,
+    minEvRatio: 0.42,
+  },
+  {
+    tierId: 'premium',
+    label: '$$$ Maior chance',
+    mode: 'high_chance',
+    budgetMultiplier: 2.6,
+    targetRatio: 0.7,
+    minTargetCount: 1,
+    maxTargetCount: 10,
+    poolType: 'full',
+    maxCostMultiplier: 3.0,
+    minEvRatio: 0.35,
+  },
 ];
 
 export function selectAlgorithm(candidateCount: number): AlgorithmType {
@@ -79,14 +147,18 @@ function applyTargetPenalty(
   let penalty = 0;
 
   if (hasTargetPool && targetCount === 0) {
-    penalty += 30;
+    penalty += 35;
+  }
+
+  if (config.maxTargetCount === 1 && targetCount !== 1) {
+    penalty += Math.abs(targetCount - 1) * 20;
   }
 
   const idealCount = Math.round(CONTRACT_SIZE * config.targetRatio);
-  penalty += Math.abs(targetCount - idealCount) * 4;
+  penalty += Math.abs(targetCount - idealCount) * 3;
 
   if (targetCount > config.maxTargetCount) {
-    penalty += (targetCount - config.maxTargetCount) * 6;
+    penalty += (targetCount - config.maxTargetCount) * 8;
   }
 
   const floatPenalty = combination.reduce((sum, idx) => {
@@ -94,51 +166,67 @@ function applyTargetPenalty(
     return sum + (candidate?.floatFitScore ?? 0);
   }, 0) / CONTRACT_SIZE;
 
-  return Math.max(0, score - penalty - floatPenalty * 8);
+  const costPenalty = combination.reduce((sum, idx) => {
+    const candidate = candidates[idx];
+    if (!candidate || ctxFloorCost(candidates) <= 0) return sum;
+    return sum + Math.max(0, candidate.price / (ctxFloorCost(candidates) / 10) - 1.5);
+  }, 0) / CONTRACT_SIZE;
+
+  return Math.max(0, score - penalty - floatPenalty * 6 - costPenalty * 12);
+}
+
+function ctxFloorCost(candidates: CandidateListing[]): number {
+  const sorted = [...candidates].sort((a, b) => a.price - b.price);
+  return sorted.slice(0, 10).reduce((sum, candidate) => sum + candidate.price, 0);
 }
 
 function isValidOptimizationResult(
   result: OptimizationResult,
   ctx: EvaluationContext,
-  config?: TierOptimizationConfig,
+  config: TierOptimizationConfig,
 ): boolean {
-  if (!Number.isFinite(result.totalCost) || result.totalCost > ctx.budget) return false;
   if (!Number.isFinite(result.score) || result.score === Number.NEGATIVE_INFINITY) return false;
   if (result.inputs.length !== 10) return false;
 
   const rarities = new Set(result.inputs.map((input) => input.item.rarity));
   if (rarities.size !== 1) return false;
 
-  if (config?.mode === 'low_cost') {
-    const targetCount = countTargetItems(result.combination, ctx.candidates);
-    const hasTargetPool = ctx.candidates.some((candidate) => candidate.isTargetCollection);
-    if (hasTargetPool && targetCount === 0) return false;
+  if (!isFeasibleContract(
+    result,
+    ctx.budget,
+    ctx.floorCost,
+    config.maxCostMultiplier,
+    config.minEvRatio,
+  )) {
+    return false;
   }
+
+  const targetCount = countTargetItems(result.combination, ctx.candidates);
+  const hasTargetPool = ctx.candidates.some((candidate) => candidate.isTargetCollection);
+  if (hasTargetPool && targetCount < config.minTargetCount) return false;
 
   return validateContractInputs(result.inputs, ctx.targetSkin).valid;
 }
 
-function buildLowCostCandidatePool(candidates: CandidateListing[]): CandidateListing[] {
-  const targetPool = candidates.filter((candidate) => candidate.isTargetCollection);
-  const otherPool = candidates
-    .filter((candidate) => !candidate.isTargetCollection)
-    .sort((a, b) => a.price - b.price);
-
-  const sliceSize = Math.max(30, Math.ceil(candidates.length * 0.55));
-  const merged = [...targetPool];
-  for (const candidate of otherPool) {
-    if (merged.length >= sliceSize) break;
-    merged.push(candidate);
+function filterCandidatesForTier(
+  candidates: CandidateListing[],
+  config: TierOptimizationConfig,
+): CandidateListing[] {
+  switch (config.poolType) {
+    case 'cheap':
+      return buildCheapCandidatePool(candidates);
+    case 'float':
+      return buildFloatFocusedPool(candidates);
+    default:
+      return buildBalancedCandidatePool(candidates);
   }
-
-  return merged.length >= 10 ? merged : candidates;
 }
 
 function wrapContextWithConstraints(
   baseCtx: EvaluationContext,
   config: TierOptimizationConfig,
 ): EvaluationContext {
-  const budget = Math.round(baseCtx.budget * config.budgetRatio * 100) / 100;
+  const budget = Math.round(baseCtx.floorCost * config.budgetMultiplier * 100) / 100;
 
   return {
     ...baseCtx,
@@ -155,16 +243,6 @@ function wrapContextWithConstraints(
       return { ...result, score: adjustedScore };
     },
   };
-}
-
-function filterCandidatesForTier(
-  candidates: CandidateListing[],
-  config: TierOptimizationConfig,
-): CandidateListing[] {
-  if (config.mode === 'low_cost') {
-    return buildLowCostCandidatePool(candidates);
-  }
-  return candidates;
 }
 
 function pickBestAlternative(
@@ -188,65 +266,66 @@ function pickBestAlternative(
   return evaluated[0] ?? null;
 }
 
-function buildLowCostFallback(
+function buildCheapFallback(
   ctx: EvaluationContext,
   config: TierOptimizationConfig,
 ): OptimizationResult | null {
   const targetIndices = ctx.candidates
     .map((candidate, index) => ({ candidate, index }))
     .filter(({ candidate }) => candidate.isTargetCollection)
-    .sort((a, b) => a.candidate.price - b.candidate.price)
+    .sort((a, b) => a.candidate.price - b.candidate.price || a.candidate.floatFitScore - b.candidate.floatFitScore)
     .map(({ index }) => index);
 
   const otherIndices = ctx.candidates
     .map((candidate, index) => ({ candidate, index }))
     .filter(({ candidate }) => !candidate.isTargetCollection)
-    .sort((a, b) => a.candidate.price - b.candidate.price)
+    .sort((a, b) => a.candidate.price - b.candidate.price || a.candidate.floatFitScore - b.candidate.floatFitScore)
     .map(({ index }) => index);
 
-  if (targetIndices.length === 0) return null;
+  const targetCount = config.maxTargetCount === 1
+    ? (targetIndices.length > 0 ? 1 : 0)
+    : Math.max(config.minTargetCount, Math.round(CONTRACT_SIZE * config.targetRatio));
 
-  for (let targetCount = config.minTargetCount; targetCount >= 1; targetCount--) {
-    const combination: Combination = [];
-    let cost = 0;
+  if (targetCount > 0 && targetIndices.length === 0) return null;
 
-    for (let i = 0; i < targetCount; i++) {
-      const idx = targetIndices[i % targetIndices.length];
-      if (idx === undefined) break;
-      combination.push(idx);
-      cost += ctx.candidates[idx]?.price ?? 0;
-    }
+  const combination: Combination = [];
+  let cost = 0;
 
-    for (let i = targetCount; i < 10; i++) {
-      const pick =
-        otherIndices.find((idx) => cost + (ctx.candidates[idx]?.price ?? 0) <= ctx.budget) ??
-        otherIndices[(i - targetCount) % (otherIndices.length || 1)] ??
-        targetIndices[0];
-
-      if (pick === undefined) break;
-      combination.push(pick);
-      cost += ctx.candidates[pick]?.price ?? 0;
-    }
-
-    if (combination.length !== 10) continue;
-
-    const result = ctx.evaluate(combination);
-    const wrapped = { combination, candidatePool: [...ctx.candidates], ...result };
-    if (isValidOptimizationResult(wrapped, ctx, config)) return wrapped;
+  for (let i = 0; i < targetCount; i++) {
+    const idx = targetIndices[i % targetIndices.length];
+    if (idx === undefined) break;
+    combination.push(idx);
+    cost += ctx.candidates[idx]?.price ?? 0;
   }
 
-  return null;
+  for (let i = combination.length; i < CONTRACT_SIZE; i++) {
+    const pick = otherIndices.find(
+      (idx) => cost + (ctx.candidates[idx]?.price ?? 0) <= ctx.budget,
+    ) ?? otherIndices[(i - targetCount) % (otherIndices.length || 1)];
+
+    if (pick === undefined) break;
+    combination.push(pick);
+    cost += ctx.candidates[pick]?.price ?? 0;
+  }
+
+  if (combination.length !== CONTRACT_SIZE) return null;
+
+  const result = ctx.evaluate(combination);
+  const wrapped = { combination, candidatePool: [...ctx.candidates], ...result };
+  return isValidOptimizationResult(wrapped, ctx, config) ? wrapped : null;
 }
 
-export async function optimizeThreeTiers(
+export async function optimizeAllTiers(
   baseCtx: EvaluationContext,
-): Promise<{ result: OptimizationResult; algorithm: AlgorithmType; mode: OptimizationMode }[]> {
-  const results: { result: OptimizationResult; algorithm: AlgorithmType; mode: OptimizationMode }[] = [];
+): Promise<{ result: OptimizationResult; algorithm: AlgorithmType; tierId: TradeUpContract['tier']; label: string }[]> {
+  const results: { result: OptimizationResult; algorithm: AlgorithmType; tierId: TradeUpContract['tier']; label: string }[] = [];
   const usedSignatures = new Set<string>();
   const originalCandidates = baseCtx.candidates;
 
   for (const config of TIER_CONFIGS) {
     const tierCandidates = filterCandidatesForTier(originalCandidates, config);
+    if (tierCandidates.length < 10) continue;
+
     baseCtx.candidates = tierCandidates;
     const ctx = wrapContextWithConstraints(baseCtx, config);
 
@@ -256,35 +335,31 @@ export async function optimizeThreeTiers(
         const ev = ctx.evaluate(s);
         return { combination: s, candidatePool: [...tierCandidates], ...ev };
       })
-      .filter((r) => isValidOptimizationResult(r, ctx, config));
+      .filter((r) => isValidOptimizationResult(r, ctx, config))
+      .sort((a, b) => b.score - a.score);
 
-    const { result, algorithm } = await optimizeContract(ctx);
-    let best =
-      result &&
-      isValidOptimizationResult({ ...result, candidatePool: [...tierCandidates] }, ctx, config) &&
-      result.score >= (seedEvals[0]?.score ?? -1)
-        ? { ...result, candidatePool: [...tierCandidates] }
-        : [...seedEvals].sort((a, b) => b.score - a.score)[0];
+    let best = seedEvals[0] ?? null;
+    let algorithm: AlgorithmType = 'heuristic';
+
+    const optimized = await optimizeContract(ctx);
+    if (
+      optimized.result &&
+      isValidOptimizationResult({ ...optimized.result, candidatePool: [...tierCandidates] }, ctx, config) &&
+      (!best || optimized.result.score > best.score)
+    ) {
+      best = { ...optimized.result, candidatePool: [...tierCandidates] };
+      algorithm = optimized.algorithm;
+    }
 
     if (best && usedSignatures.has(combinationSignature(best.combination))) {
       const alt = pickBestAlternative(ctx, seeds, usedSignatures, config);
-      if (alt && alt.score > 0) best = alt;
+      if (alt && alt.score > (best?.score ?? 0)) best = alt;
     }
 
     if (!best || !isValidOptimizationResult(best, ctx, config)) {
-      const fallback = pickBestAlternative(ctx, seeds, usedSignatures, config);
+      const fallback = pickBestAlternative(ctx, seeds, usedSignatures, config)
+        ?? buildCheapFallback(ctx, config);
       if (fallback && isValidOptimizationResult(fallback, ctx, config)) best = fallback;
-    }
-
-    if ((!best || !isValidOptimizationResult(best, ctx, config)) && config.mode === 'low_cost') {
-      const lowCostFallback = buildLowCostFallback(ctx, config);
-      if (
-        lowCostFallback &&
-        isValidOptimizationResult(lowCostFallback, ctx, config) &&
-        !usedSignatures.has(combinationSignature(lowCostFallback.combination))
-      ) {
-        best = lowCostFallback;
-      }
     }
 
     if (best && isValidOptimizationResult(best, ctx, config)) {
@@ -300,7 +375,8 @@ export async function optimizeThreeTiers(
           score: best.score,
         },
         algorithm,
-        mode: config.mode,
+        tierId: config.tierId,
+        label: config.label,
       });
     }
   }
@@ -309,3 +385,6 @@ export async function optimizeThreeTiers(
 
   return results;
 }
+
+/** @deprecated Use optimizeAllTiers */
+export const optimizeThreeTiers = optimizeAllTiers;

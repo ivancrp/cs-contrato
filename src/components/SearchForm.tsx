@@ -21,7 +21,7 @@ export function SearchForm({
   onSearch,
   loading,
 }: SearchFormProps) {
-  const [skinName, setSkinName] = useState('M4A1-S | Black Lotus');
+  const [skinName, setSkinName] = useState('');
   const [selectedSkin, setSelectedSkin] = useState<SkinItem | null>(null);
   const [stattrak, setStattrak] = useState(false);
   const [wear, setWear] = useState<WearTier>('Factory New');

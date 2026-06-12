@@ -59,7 +59,9 @@ export function AIRecommendation({ recommendation, contracts }: AIRecommendation
 }
 
 const TIER_LABELS: Record<string, string> = {
-  budget: '$ Baixo investimento',
-  balanced: '$$ Investimento médio',
-  premium: '$$$ Maior investimento',
+  budget: '$ Menor custo',
+  one_target: '◎ 1 skin da coleção alvo',
+  float_safe: '◎ Float ideal (econômico)',
+  balanced: '$$ Equilibrado',
+  premium: '$$$ Maior chance',
 };

@@ -30,7 +30,10 @@ function compareByValueFloatCollection(
  * Heurística greedy: seleciona candidatos por preço, float e coleção.
  */
 export function greedyOptimize(ctx: EvaluationContext): OptimizationResult | null {
-  const targetWeight = ctx.mode === 'high_chance' ? 2 : ctx.mode === 'balanced' ? 1 : 0.5;
+  const targetWeight =
+    ctx.mode === 'high_chance' ? 2 :
+    ctx.mode === 'min_loss' ? 0.3 :
+    ctx.mode === 'balanced' ? 1 : 0.5;
 
   const sortedIndices = sortedCandidateIndices(ctx, (a, b) =>
     compareByValueFloatCollection(a, b, targetWeight),

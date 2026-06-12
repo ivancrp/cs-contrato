@@ -672,6 +672,8 @@ input:focus, select:focus {
 }
 
 .contract-card.tier-budget { border-left: 3px solid var(--success); }
+.contract-card.tier-one_target { border-left: 3px solid #34d399; }
+.contract-card.tier-float_safe { border-left: 3px solid #818cf8; }
 .contract-card.tier-balanced { border-left: 3px solid var(--accent); }
 .contract-card.tier-premium { border-left: 3px solid var(--warning); }
 .contract-card.tier-ai_best { border-left: 3px solid var(--purple); }

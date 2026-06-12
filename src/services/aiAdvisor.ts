@@ -11,16 +11,18 @@ export interface TierInsight {
 }
 
 export interface AIRecommendation {
-  recommendedTier: 'budget' | 'balanced' | 'premium';
+  recommendedTier: TradeUpContract['tier'];
   recommendedLabel: string;
   summary: string;
   tierInsights: TierInsight[];
 }
 
 const TIER_LABELS: Record<string, string> = {
-  budget: '$ Baixo investimento',
-  balanced: '$$ Investimento médio',
-  premium: '$$$ Maior investimento',
+  budget: '$ Menor custo',
+  one_target: '◎ 1 skin da coleção alvo',
+  float_safe: '◎ Float ideal (econômico)',
+  balanced: '$$ Equilibrado',
+  premium: '$$$ Maior chance',
 };
 
 /**
@@ -30,7 +32,7 @@ export function generateAIRecommendation(
   contracts: TradeUpContract[],
 ): AIRecommendation {
   const tiers = contracts.filter((c) =>
-    ['budget', 'balanced', 'premium'].includes(c.tier),
+    ['budget', 'one_target', 'float_safe', 'balanced', 'premium'].includes(c.tier),
   );
   const referenceBudget = Math.max(
     ...contracts.map((contract) => contract.evMetrics.totalCost),
@@ -48,7 +50,7 @@ export function generateAIRecommendation(
   scored.sort((a, b) => b.score - a.score);
 
   const best = scored[0]?.contract ?? tiers[0];
-  const recommendedTier = (best?.tier ?? 'balanced') as AIRecommendation['recommendedTier'];
+  const recommendedTier = best?.tier ?? 'balanced';
 
   const summary = buildSummary(best, tiers, referenceBudget);
 
