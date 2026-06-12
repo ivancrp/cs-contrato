@@ -9,7 +9,7 @@ import {
   isValidTradeUpInput,
 } from '../math/probability';
 import { assertValidContractInputs } from '../math/contractRules';
-import { maxInputFloatForTarget } from '../math/wear';
+import { maxInputFloatForTargetOutput } from '../math/wear';
 import type {
   Collection,
   ContractInput,
@@ -43,12 +43,6 @@ export function findInputCandidates(
   const targetCollections = findCollectionsForTarget(targetSkin);
   const targetCollectionIds = new Set(targetCollections.map((c) => c.id));
 
-  const maxInputFloat = maxInputFloatForTarget(
-    maxFloat,
-    targetSkin.minFloat,
-    targetSkin.maxFloat,
-  );
-
   const collections = getCollections();
 
   return collections.flatMap((col) =>
@@ -57,7 +51,7 @@ export function findInputCandidates(
         item.rarity === inputRarity &&
         item.stattrak === targetSkin.stattrak &&
         !!item.souvenir === !!targetSkin.souvenir &&
-        item.minFloat <= maxInputFloat &&
+        item.minFloat <= maxInputFloatForTargetOutput(maxFloat, item, targetSkin) &&
         isValidTradeUpInput(item, targetSkin, collections),
     ),
   ).map((item) => ({

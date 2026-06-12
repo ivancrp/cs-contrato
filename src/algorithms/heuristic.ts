@@ -1,6 +1,6 @@
 import type { CandidateListing, Combination, EvaluationContext, OptimizationResult } from './types';
 
-const CONTRACT_SIZE = 10;
+export const CONTRACT_SIZE = 10;
 
 function sortedCandidateIndices(
   ctx: EvaluationContext,
@@ -12,25 +12,29 @@ function sortedCandidateIndices(
     .map(({ index }) => index);
 }
 
+function compareByValueFloatCollection(
+  a: CandidateListing,
+  b: CandidateListing,
+  targetWeight = 0,
+): number {
+  const floatDiff = a.floatFitScore - b.floatFitScore;
+  if (Math.abs(floatDiff) > 0.02) return floatDiff;
+
+  const targetDiff = (b.isTargetCollection ? 1 : 0) - (a.isTargetCollection ? 1 : 0);
+  if (targetDiff !== 0) return targetDiff * targetWeight;
+
+  return a.price - b.price;
+}
+
 /**
- * Heurística greedy: seleciona candidatos ordenados por critério do modo.
+ * Heurística greedy: seleciona candidatos por preço, float e coleção.
  */
 export function greedyOptimize(ctx: EvaluationContext): OptimizationResult | null {
-  const sortedIndices = sortedCandidateIndices(ctx, (a, b) => {
-    switch (ctx.mode) {
-      case 'low_cost':
-        return (
-          (b.isTargetCollection ? 1 : 0) - (a.isTargetCollection ? 1 : 0) ||
-          a.price - b.price
-        );
-      case 'high_chance':
-        return (b.isTargetCollection ? 1 : 0) - (a.isTargetCollection ? 1 : 0) || a.price - b.price;
-      case 'min_loss':
-        return b.price - a.price;
-      default:
-        return (a.isTargetCollection ? 0.5 : 0) + a.price * 0.001 - (b.isTargetCollection ? 0.5 : 0) - b.price * 0.001;
-    }
-  });
+  const targetWeight = ctx.mode === 'high_chance' ? 2 : ctx.mode === 'balanced' ? 1 : 0.5;
+
+  const sortedIndices = sortedCandidateIndices(ctx, (a, b) =>
+    compareByValueFloatCollection(a, b, targetWeight),
+  );
 
   const combination: Combination = [];
   let cost = 0;
@@ -56,6 +60,34 @@ export function greedyOptimize(ctx: EvaluationContext): OptimizationResult | nul
 }
 
 /**
+ * 1 skin da coleção alvo + 9 baratas com bom float (estratégia mínima de chance).
+ */
+export function minimalTargetSeed(ctx: EvaluationContext): Combination {
+  const targetIdx = sortedCandidateIndices(
+    ctx,
+    (a, b) => compareByValueFloatCollection(a, b, 1),
+  ).find((idx) => ctx.candidates[idx]?.isTargetCollection);
+
+  const otherIndices = sortedCandidateIndices(
+    ctx,
+    (a, b) => compareByValueFloatCollection(a, b, 0),
+  ).filter((idx) => !ctx.candidates[idx]?.isTargetCollection);
+
+  const combination: Combination = [];
+
+  if (targetIdx !== undefined) {
+    combination.push(targetIdx);
+  }
+
+  for (let i = combination.length; i < CONTRACT_SIZE; i++) {
+    const slot = i - combination.length;
+    combination.push(otherIndices[slot % (otherIndices.length || 1)] ?? targetIdx ?? 0);
+  }
+
+  return combination;
+}
+
+/**
  * Gera combinação inicial com foco na coleção alvo.
  */
 export function targetCollectionSeed(
@@ -64,15 +96,15 @@ export function targetCollectionSeed(
 ): Combination {
   const targetIndices = sortedCandidateIndices(
     ctx,
-    (a, b) => (a.isTargetCollection ? 0 : 1) - (b.isTargetCollection ? 0 : 1) || a.price - b.price,
+    (a, b) => compareByValueFloatCollection(a, b, 1),
   ).filter((idx) => ctx.candidates[idx]?.isTargetCollection);
 
   const otherIndices = sortedCandidateIndices(
     ctx,
-    (a, b) => a.price - b.price,
+    (a, b) => compareByValueFloatCollection(a, b, 0),
   ).filter((idx) => !ctx.candidates[idx]?.isTargetCollection);
 
-  const targetCount = Math.round(CONTRACT_SIZE * targetRatio);
+  const targetCount = Math.max(1, Math.round(CONTRACT_SIZE * targetRatio));
   const combination: Combination = [];
 
   for (let i = 0; i < targetCount && i < CONTRACT_SIZE; i++) {
@@ -94,10 +126,11 @@ export function generateTierSeeds(
   targetRatio = 0.7,
 ): Combination[] {
   return [
+    minimalTargetSeed(ctx),
+    targetCollectionSeed(ctx, 0.1),
     targetCollectionSeed(ctx, targetRatio),
     targetCollectionSeed(ctx, Math.min(targetRatio + 0.2, 1)),
-    targetCollectionSeed(ctx, Math.max(targetRatio - 0.2, 0)),
-    Array(CONTRACT_SIZE).fill(0),
+    targetCollectionSeed(ctx, Math.max(targetRatio - 0.2, 0.1)),
   ];
 }
 

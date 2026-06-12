@@ -15,7 +15,8 @@ import type {
 } from '../models/types';
 import { priceService } from '../services/priceService';
 import { buildMarketHashName } from '../utils/format';
-import { floatToWear, wearToMaxFloat } from '../math/wear';
+import { normalizeFloat } from '../math/float';
+import { floatToWear, maxInputFloatForTargetOutput, requiredNormalizedWear, wearToMaxFloat } from '../math/wear';
 import { calculateContract, findCollectionsForTarget, findInputCandidates } from './tradeUpCalculator';
 
 const TIER_LABELS: Record<string, string> = {
@@ -135,11 +136,13 @@ export async function buildCandidatePool(
     findCollectionsForTarget(targetSkin).map((c) => c.id),
   );
 
+  const idealNorm = requiredNormalizedWear(maxFloat, targetSkin);
   const listings: CandidateListing[] = [];
 
   for (const item of candidates) {
+    const maxAllowed = maxInputFloatForTargetOutput(maxFloat, item, targetSkin);
     const floats = FLOAT_SAMPLES.filter(
-      (f) => f <= maxFloat && f >= item.minFloat,
+      (f) => f >= item.minFloat && f <= maxAllowed,
     );
 
     for (const f of floats) {
@@ -152,6 +155,8 @@ export async function buildCandidatePool(
 
       if (price <= 0) continue;
 
+      const normalized = normalizeFloat(f, item);
+
       listings.push({
         listingId: `${item.id}-${f}-${params.marketplace}`,
         itemId: item.id,
@@ -160,12 +165,20 @@ export async function buildCandidatePool(
         stattrak: item.stattrak,
         price,
         float: f,
+        normalizedFloat: normalized,
+        floatFitScore: Math.abs(normalized - idealNorm),
         isTargetCollection: targetCollectionIds.has(item.collectionId),
       });
     }
   }
 
-  return trimCandidatePool(listings.sort((a, b) => a.price - b.price));
+  return trimCandidatePool(
+    listings.sort((a, b) => {
+      const floatDiff = a.floatFitScore - b.floatFitScore;
+      if (Math.abs(floatDiff) > 0.015) return floatDiff;
+      return a.price - b.price;
+    }),
+  );
 }
 
 /**

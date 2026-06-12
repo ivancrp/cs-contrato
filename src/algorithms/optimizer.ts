@@ -2,7 +2,7 @@ import type { AlgorithmType, OptimizationMode } from '../models/types';
 import { validateContractInputs } from '../math/contractRules';
 import { branchAndBoundOptimize } from './branchAndBound';
 import { geneticOptimize } from './geneticAlgorithm';
-import { generateTierSeeds, greedyOptimize } from './heuristic';
+import { CONTRACT_SIZE, generateTierSeeds, greedyOptimize } from './heuristic';
 import { simulatedAnnealingOptimize } from './simulatedAnnealing';
 import type { CandidateListing, Combination, EvaluationContext, OptimizationResult } from './types';
 
@@ -18,9 +18,9 @@ export interface TierOptimizationConfig {
 }
 
 export const TIER_CONFIGS: TierOptimizationConfig[] = [
-  { mode: 'low_cost', budgetRatio: 0.65, targetRatio: 0.4, minTargetCount: 4, maxTargetCount: 6 },
-  { mode: 'balanced', budgetRatio: 0.8, targetRatio: 0.7, minTargetCount: 5, maxTargetCount: 8 },
-  { mode: 'high_chance', budgetRatio: 1.0, targetRatio: 1.0, minTargetCount: 10, maxTargetCount: 10 },
+  { mode: 'low_cost', budgetRatio: 0.65, targetRatio: 0.1, minTargetCount: 1, maxTargetCount: 4 },
+  { mode: 'balanced', budgetRatio: 0.8, targetRatio: 0.4, minTargetCount: 1, maxTargetCount: 7 },
+  { mode: 'high_chance', budgetRatio: 1.0, targetRatio: 0.7, minTargetCount: 1, maxTargetCount: 10 },
 ];
 
 export function selectAlgorithm(candidateCount: number): AlgorithmType {
@@ -70,16 +70,31 @@ function applyTargetPenalty(
   score: number,
   combination: Combination,
   candidates: CandidateListing[],
-  minTarget: number,
-  maxTarget: number,
+  config: TierOptimizationConfig,
 ): number {
   if (!Number.isFinite(score)) return score;
 
   const targetCount = countTargetItems(combination, candidates);
+  const hasTargetPool = candidates.some((candidate) => candidate.isTargetCollection);
   let penalty = 0;
-  if (targetCount < minTarget) penalty += (minTarget - targetCount) * 18;
-  if (targetCount > maxTarget) penalty += (targetCount - maxTarget) * 14;
-  return Math.max(0, score - penalty);
+
+  if (hasTargetPool && targetCount === 0) {
+    penalty += 30;
+  }
+
+  const idealCount = Math.round(CONTRACT_SIZE * config.targetRatio);
+  penalty += Math.abs(targetCount - idealCount) * 4;
+
+  if (targetCount > config.maxTargetCount) {
+    penalty += (targetCount - config.maxTargetCount) * 6;
+  }
+
+  const floatPenalty = combination.reduce((sum, idx) => {
+    const candidate = candidates[idx];
+    return sum + (candidate?.floatFitScore ?? 0);
+  }, 0) / CONTRACT_SIZE;
+
+  return Math.max(0, score - penalty - floatPenalty * 8);
 }
 
 function isValidOptimizationResult(
@@ -135,8 +150,7 @@ function wrapContextWithConstraints(
         result.score,
         combination,
         baseCtx.candidates,
-        config.minTargetCount,
-        config.maxTargetCount,
+        config,
       );
       return { ...result, score: adjustedScore };
     },
@@ -149,10 +163,6 @@ function filterCandidatesForTier(
 ): CandidateListing[] {
   if (config.mode === 'low_cost') {
     return buildLowCostCandidatePool(candidates);
-  }
-  if (config.mode === 'high_chance') {
-    const targetOnly = candidates.filter((c) => c.isTargetCollection);
-    return targetOnly.length >= 10 ? targetOnly : candidates;
   }
   return candidates;
 }

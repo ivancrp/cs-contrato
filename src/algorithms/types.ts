@@ -8,6 +8,10 @@ export interface CandidateListing {
   stattrak: boolean;
   price: number;
   float: number;
+  /** Wear normalizado (0–1) dentro do range da skin. */
+  normalizedFloat: number;
+  /** Distância do wear ideal para atingir o desgate alvo (menor = melhor). */
+  floatFitScore: number;
   isTargetCollection: boolean;
 }
 

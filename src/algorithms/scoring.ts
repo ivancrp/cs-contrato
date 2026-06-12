@@ -49,8 +49,10 @@ export function calculateContractScore(
     ? lossOutputs.reduce((s, o) => s + o.probability * (input.totalCost - o.price), 0) / (lossProb || 1)
     : 0;
 
-  const floatPenalty = input.expectedFloat > input.maxFloat
-    ? (input.expectedFloat - input.maxFloat) * 10
+  const floatDelta = input.expectedFloat - input.maxFloat;
+  const floatPenalty = floatDelta > 0 ? floatDelta * 12 : 0;
+  const floatBonus = floatDelta <= 0
+    ? Math.max(0, 1 - input.expectedFloat / Math.max(input.maxFloat, 0.001)) * 0.15
     : 0;
 
   const budgetPenalty = input.totalCost > input.budget
@@ -70,7 +72,8 @@ export function calculateContractScore(
     weights.cost * normCost +
     weights.risk * normRisk +
     weights.loss * normLoss +
-    weights.breakEven * normBreakEven -
+    weights.breakEven * normBreakEven +
+    weights.float * floatBonus -
     weights.float * floatPenalty -
     weights.cost * budgetPenalty;
 

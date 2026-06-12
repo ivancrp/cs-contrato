@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { calculateOutputFloat, calculateAverageInputFloat } from '../float';
+import {
+  calculateAverageInputFloat,
+  calculateAverageNormalizedFloat,
+  calculateExpectedFloatForOutput,
+  calculateOutputFloat,
+  normalizeFloat,
+} from '../float';
 import type { ContractInput, SkinItem } from '../../models/types';
 
 const mockSkin: SkinItem = {
@@ -40,5 +46,34 @@ describe('calculateAverageInputFloat', () => {
   it('calcula média correta de 10 entradas', () => {
     const inputs = Array.from({ length: 10 }, () => makeInput(0.05));
     expect(calculateAverageInputFloat(inputs)).toBeCloseTo(0.05, 4);
+  });
+});
+
+describe('normalizeFloat', () => {
+  it('normaliza float dentro do range da skin', () => {
+    expect(normalizeFloat(0.35, mockSkin)).toBeCloseTo(0.5, 4);
+  });
+});
+
+describe('calculateExpectedFloatForOutput', () => {
+  it('usa wears normalizados quando entradas têm ranges diferentes', () => {
+    const cappedSkin: SkinItem = {
+      ...mockSkin,
+      id: 'capped',
+      minFloat: 0,
+      maxFloat: 0.5,
+    };
+
+    const inputs = [
+      ...Array.from({ length: 5 }, () => makeInput(0.035)),
+      ...Array.from({ length: 5 }, () => ({
+        ...makeInput(0.07),
+        item: cappedSkin,
+      })),
+    ];
+
+    const expected = calculateExpectedFloatForOutput(inputs, mockSkin);
+    const avgNorm = calculateAverageNormalizedFloat(inputs);
+    expect(expected).toBeCloseTo(calculateOutputFloat(avgNorm, mockSkin), 4);
   });
 });

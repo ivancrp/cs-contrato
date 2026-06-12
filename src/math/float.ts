@@ -1,9 +1,31 @@
 import type { ContractInput, SkinItem } from '../models/types';
 import { floatToWear } from './wear';
 
+/** Skin com range de float completo (0 → 1). */
+export function hasFullFloatRange(skin: SkinItem): boolean {
+  return skin.minFloat <= 0.001 && skin.maxFloat >= 0.99;
+}
+
 /**
- * Calcula o float médio das entradas do contrato.
- * @param inputs - Lista de entradas (10 skins)
+ * Normaliza o float absoluto para wear factor (0–1) dentro do range da skin.
+ */
+export function normalizeFloat(float: number, skin: SkinItem): number {
+  const range = skin.maxFloat - skin.minFloat;
+  if (range <= 0) return 0;
+  return Math.min(Math.max((float - skin.minFloat) / range, 0), 1);
+}
+
+/**
+ * Converte wear factor normalizado em float absoluto da skin.
+ */
+export function denormalizeFloat(normalized: number, skin: SkinItem): number {
+  const range = skin.maxFloat - skin.minFloat;
+  const value = skin.minFloat + normalized * range;
+  return Math.min(Math.max(value, skin.minFloat), skin.maxFloat);
+}
+
+/**
+ * Calcula o float médio absoluto das entradas (exibição).
  */
 export function calculateAverageInputFloat(inputs: ContractInput[]): number {
   if (inputs.length === 0) return 0;
@@ -12,19 +34,27 @@ export function calculateAverageInputFloat(inputs: ContractInput[]): number {
 }
 
 /**
+ * Média dos wears normalizados — base da fórmula oficial do CS2.
+ */
+export function calculateAverageNormalizedFloat(inputs: ContractInput[]): number {
+  if (inputs.length === 0) return 0;
+  const sum = inputs.reduce(
+    (acc, input) => acc + normalizeFloat(input.listing.float, input.item),
+    0,
+  );
+  return sum / inputs.length;
+}
+
+/**
  * Fórmula oficial do CS2 para float de saída:
- * OutputFloat = MinFloat + (MediaFloatEntradas × (MaxFloat - MinFloat))
- *
- * @param averageInputFloat - Média dos floats de entrada
- * @param outputSkin - Skin de saída
+ * OutputFloat = MinFloat + (MédiaWearNormalizado × (MaxFloat - MinFloat))
  */
 export function calculateOutputFloat(
-  averageInputFloat: number,
+  averageNormalizedFloat: number,
   outputSkin: SkinItem,
 ): number {
   const range = outputSkin.maxFloat - outputSkin.minFloat;
-  const result =
-    outputSkin.minFloat + averageInputFloat * range;
+  const result = outputSkin.minFloat + averageNormalizedFloat * range;
   return Math.min(Math.max(result, outputSkin.minFloat), outputSkin.maxFloat);
 }
 
@@ -35,8 +65,8 @@ export function calculateExpectedFloatForOutput(
   inputs: ContractInput[],
   outputSkin: SkinItem,
 ): number {
-  const avgFloat = calculateAverageInputFloat(inputs);
-  return calculateOutputFloat(avgFloat, outputSkin);
+  const avgNormalized = calculateAverageNormalizedFloat(inputs);
+  return calculateOutputFloat(avgNormalized, outputSkin);
 }
 
 /**
@@ -46,12 +76,12 @@ export function calculateOutputFloatRange(
   inputs: ContractInput[],
   outputSkin: SkinItem,
 ): { min: number; max: number } {
-  const inputFloats = inputs.map((i) => i.listing.float);
-  const minInput = Math.min(...inputFloats);
-  const maxInput = Math.max(...inputFloats);
+  const normalized = inputs.map((i) => normalizeFloat(i.listing.float, i.item));
+  const minNorm = Math.min(...normalized);
+  const maxNorm = Math.max(...normalized);
   return {
-    min: calculateOutputFloat(minInput, outputSkin),
-    max: calculateOutputFloat(maxInput, outputSkin),
+    min: calculateOutputFloat(minNorm, outputSkin),
+    max: calculateOutputFloat(maxNorm, outputSkin),
   };
 }
 
@@ -63,7 +93,8 @@ export function calculateFloatMetrics(
   targetSkin: SkinItem,
 ) {
   const avg = calculateAverageInputFloat(inputs);
-  const expected = calculateOutputFloat(avg, targetSkin);
+  const avgNormalized = calculateAverageNormalizedFloat(inputs);
+  const expected = calculateOutputFloat(avgNormalized, targetSkin);
   const minPossible = calculateOutputFloat(0, targetSkin);
   const maxPossible = calculateOutputFloat(1, targetSkin);
 

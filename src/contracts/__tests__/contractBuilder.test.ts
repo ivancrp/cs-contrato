@@ -49,6 +49,8 @@ describe('resolveSearchDefaults', () => {
       stattrak: true,
       price: 10 + index,
       float: 0.15,
+      normalizedFloat: 0.15,
+      floatFitScore: 0.08,
       isTargetCollection: index < 4,
     }));
 

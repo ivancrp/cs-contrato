@@ -1,4 +1,4 @@
-import type { WearTier } from '../models/types';
+import type { SkinItem, WearTier } from '../models/types';
 
 /** Limites oficiais de wear do CS2 (limite superior inclusivo por tier). */
 export const WEAR_BOUNDS: Record<WearTier, { min: number; max: number }> = {
@@ -36,8 +36,33 @@ export function wearToMaxFloat(wear: WearTier): number {
 }
 
 /**
- * Calcula o float máximo de entrada necessário para atingir um float de saída alvo.
- * Derivado da fórmula oficial invertida.
+ * Wear normalizado necessário na saída para atingir o float alvo.
+ */
+export function requiredNormalizedWear(
+  targetOutputFloat: number,
+  outputSkin: SkinItem,
+): number {
+  const range = outputSkin.maxFloat - outputSkin.minFloat;
+  if (range <= 0) return 0;
+  return Math.min(Math.max((targetOutputFloat - outputSkin.minFloat) / range, 0), 1);
+}
+
+/**
+ * Float máximo de uma skin de entrada para não ultrapassar o desgate alvo na saída.
+ * Considera o range individual de cada skin (float completo ou capado).
+ */
+export function maxInputFloatForTargetOutput(
+  targetOutputFloat: number,
+  inputSkin: SkinItem,
+  outputSkin: SkinItem,
+): number {
+  const requiredNorm = requiredNormalizedWear(targetOutputFloat, outputSkin);
+  const inputRange = inputSkin.maxFloat - inputSkin.minFloat;
+  return inputSkin.minFloat + requiredNorm * inputRange;
+}
+
+/**
+ * @deprecated Use maxInputFloatForTargetOutput com a skin de entrada específica.
  */
 export function maxInputFloatForTarget(
   targetOutputFloat: number,
@@ -46,5 +71,5 @@ export function maxInputFloatForTarget(
 ): number {
   const range = skinMaxFloat - skinMinFloat;
   if (range <= 0) return 0;
-  return (targetOutputFloat - skinMinFloat) / range;
+  return skinMinFloat + ((targetOutputFloat - skinMinFloat) / range) * range;
 }
