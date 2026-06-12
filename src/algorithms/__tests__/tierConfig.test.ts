@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { TIER_CONFIGS } from '../optimizer';
 
 describe('TIER_CONFIGS', () => {
-  it('tier de baixo investimento prioriza skins da coleção alvo', () => {
-    const lowCost = TIER_CONFIGS.find((config) => config.mode === 'low_cost');
-    expect(lowCost?.minTargetCount).toBeGreaterThanOrEqual(4);
-    expect(lowCost?.targetRatio).toBe(0.4);
+  it('inclui tier dedicado a 60% de chance na skin alvo', () => {
+    const target60 = TIER_CONFIGS.find((config) => config.tierId === 'target_60');
+    expect(target60?.minTargetChance).toBe(0.6);
+    expect(target60?.poolType).toBe('target_heavy');
   });
 });

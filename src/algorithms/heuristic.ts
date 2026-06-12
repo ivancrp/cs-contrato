@@ -91,6 +91,41 @@ export function minimalTargetSeed(ctx: EvaluationContext): Combination {
 }
 
 /**
+ * Seed com N entradas da coleção que maximiza chance na skin alvo.
+ */
+export function highTargetSeed(
+  ctx: EvaluationContext,
+  collectionId: string,
+  targetCount: number,
+): Combination {
+  const collectionIndices = sortedCandidateIndices(
+    ctx,
+    (a, b) => compareByValueFloatCollection(a, b, 1),
+  ).filter((idx) => ctx.candidates[idx]?.collectionId === collectionId);
+
+  const otherIndices = sortedCandidateIndices(
+    ctx,
+    (a, b) => compareByValueFloatCollection(a, b, 0),
+  ).filter((idx) => ctx.candidates[idx]?.collectionId !== collectionId);
+
+  const combination: Combination = [];
+  const count = Math.min(Math.max(targetCount, 0), CONTRACT_SIZE);
+
+  for (let i = 0; i < count; i++) {
+    const idx = collectionIndices[i % (collectionIndices.length || 1)];
+    if (idx !== undefined) combination.push(idx);
+  }
+
+  while (combination.length < CONTRACT_SIZE) {
+    const slot = combination.length - count;
+    const idx = otherIndices[slot % (otherIndices.length || 1)] ?? collectionIndices[0] ?? 0;
+    combination.push(idx);
+  }
+
+  return combination;
+}
+
+/**
  * Gera combinação inicial com foco na coleção alvo.
  */
 export function targetCollectionSeed(
@@ -124,17 +159,32 @@ export function targetCollectionSeed(
   return combination;
 }
 
+export interface TierSeedOptions {
+  targetCollectionId?: string;
+  minTargetInputs?: number;
+}
+
 export function generateTierSeeds(
   ctx: EvaluationContext,
   targetRatio = 0.7,
+  options?: TierSeedOptions,
 ): Combination[] {
-  return [
+  const seeds: Combination[] = [
     minimalTargetSeed(ctx),
     targetCollectionSeed(ctx, 0.1),
     targetCollectionSeed(ctx, targetRatio),
     targetCollectionSeed(ctx, Math.min(targetRatio + 0.2, 1)),
     targetCollectionSeed(ctx, Math.max(targetRatio - 0.2, 0.1)),
   ];
+
+  if (options?.targetCollectionId && options.minTargetInputs) {
+    const { targetCollectionId, minTargetInputs } = options;
+    seeds.unshift(highTargetSeed(ctx, targetCollectionId, minTargetInputs));
+    seeds.push(highTargetSeed(ctx, targetCollectionId, Math.min(10, minTargetInputs + 1)));
+    seeds.push(highTargetSeed(ctx, targetCollectionId, 10));
+  }
+
+  return seeds;
 }
 
 export function combinationCost(combination: Combination, candidates: CandidateListing[]): number {

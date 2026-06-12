@@ -1,9 +1,12 @@
 import type { AlgorithmType, OptimizationMode, TradeUpContract } from '../models/types';
 import { validateContractInputs } from '../math/contractRules';
+import { getCollections } from '../data/collections';
+import { getTargetChanceFromOutputs, planInputsForTargetChance } from '../math/targetChance';
 import {
   buildBalancedCandidatePool,
   buildCheapCandidatePool,
   buildFloatFocusedPool,
+  buildTargetHeavyPool,
   extractTargetCollectionPool,
   isFeasibleContract,
 } from './candidatePool';
@@ -24,9 +27,11 @@ export interface TierOptimizationConfig {
   targetRatio: number;
   minTargetCount: number;
   maxTargetCount: number;
-  poolType: 'cheap' | 'float' | 'full';
+  poolType: 'cheap' | 'float' | 'full' | 'target_heavy';
   maxCostMultiplier: number;
   minEvRatio: number;
+  minTargetChance?: number;
+  targetCollectionId?: string;
 }
 
 export const TIER_CONFIGS: TierOptimizationConfig[] = [
@@ -90,6 +95,19 @@ export const TIER_CONFIGS: TierOptimizationConfig[] = [
     maxCostMultiplier: 3.0,
     minEvRatio: 0.35,
   },
+  {
+    tierId: 'target_60',
+    label: '🎯 60% chance no alvo',
+    mode: 'high_chance',
+    budgetMultiplier: 2.8,
+    targetRatio: 0.6,
+    minTargetCount: 6,
+    maxTargetCount: 10,
+    poolType: 'target_heavy',
+    maxCostMultiplier: 3.2,
+    minEvRatio: 0.3,
+    minTargetChance: 0.6,
+  },
 ];
 
 export function selectAlgorithm(candidateCount: number): AlgorithmType {
@@ -133,6 +151,36 @@ function combinationSignature(combination: Combination): string {
 
 function countTargetItems(combination: Combination, candidates: CandidateListing[]): number {
   return combination.filter((idx) => candidates[idx]?.isTargetCollection).length;
+}
+
+function countCollectionItems(
+  combination: Combination,
+  candidates: CandidateListing[],
+  collectionId: string,
+): number {
+  return combination.filter((idx) => candidates[idx]?.collectionId === collectionId).length;
+}
+
+function resolveTierConfig(
+  config: TierOptimizationConfig,
+  baseCtx: EvaluationContext,
+): TierOptimizationConfig | null {
+  if (config.tierId !== 'target_60') return config;
+
+  const plan = planInputsForTargetChance(
+    baseCtx.targetSkin,
+    getCollections(),
+    config.minTargetChance ?? 0.6,
+  );
+  if (!plan) return null;
+
+  return {
+    ...config,
+    targetCollectionId: plan.collectionId,
+    minTargetCount: plan.inputCount,
+    targetRatio: plan.inputCount / CONTRACT_SIZE,
+    label: `🎯 ${Math.round(plan.expectedChance * 100)}% chance no alvo`,
+  };
 }
 
 function applyTargetPenalty(
@@ -212,6 +260,20 @@ function isValidOptimizationResult(
     return false;
   }
 
+  if (config.minTargetChance) {
+    const targetChance = getTargetChanceFromOutputs(result.outputs, ctx.targetSkin.id);
+    if (targetChance < config.minTargetChance - 1e-9) return false;
+  }
+
+  if (config.targetCollectionId) {
+    const fromBestCollection = countCollectionItems(
+      result.combination,
+      ctx.candidates,
+      config.targetCollectionId,
+    );
+    if (fromBestCollection < config.minTargetCount) return false;
+  }
+
   return validateContractInputs(result.inputs, ctx.targetSkin).valid;
 }
 
@@ -224,6 +286,10 @@ function filterCandidatesForTier(
       return buildCheapCandidatePool(candidates);
     case 'float':
       return buildFloatFocusedPool(candidates);
+    case 'target_heavy':
+      return config.targetCollectionId
+        ? buildTargetHeavyPool(candidates, config.targetCollectionId)
+        : buildBalancedCandidatePool(candidates);
     default:
       return buildBalancedCandidatePool(candidates);
   }
@@ -284,21 +350,33 @@ function buildCheapFallback(
   ctx: EvaluationContext,
   config: TierOptimizationConfig,
 ): OptimizationResult | null {
-  const targetIndices = ctx.candidates
-    .map((candidate, index) => ({ candidate, index }))
-    .filter(({ candidate }) => candidate.isTargetCollection)
-    .sort((a, b) => a.candidate.price - b.candidate.price || a.candidate.floatFitScore - b.candidate.floatFitScore)
-    .map(({ index }) => index);
+  const targetIndices = config.targetCollectionId
+    ? ctx.candidates
+      .map((candidate, index) => ({ candidate, index }))
+      .filter(({ candidate }) => candidate.collectionId === config.targetCollectionId)
+      .sort((a, b) => a.candidate.price - b.candidate.price || a.candidate.floatFitScore - b.candidate.floatFitScore)
+      .map(({ index }) => index)
+    : ctx.candidates
+      .map((candidate, index) => ({ candidate, index }))
+      .filter(({ candidate }) => candidate.isTargetCollection)
+      .sort((a, b) => a.candidate.price - b.candidate.price || a.candidate.floatFitScore - b.candidate.floatFitScore)
+      .map(({ index }) => index);
 
   const otherIndices = ctx.candidates
     .map((candidate, index) => ({ candidate, index }))
-    .filter(({ candidate }) => !candidate.isTargetCollection)
+    .filter(({ candidate }) =>
+      config.targetCollectionId
+        ? candidate.collectionId !== config.targetCollectionId
+        : !candidate.isTargetCollection,
+    )
     .sort((a, b) => a.candidate.price - b.candidate.price || a.candidate.floatFitScore - b.candidate.floatFitScore)
     .map(({ index }) => index);
 
-  const targetCount = config.maxTargetCount === 1
-    ? (targetIndices.length > 0 ? 1 : 0)
-    : Math.max(config.minTargetCount, Math.round(CONTRACT_SIZE * config.targetRatio));
+  const targetCount = config.targetCollectionId
+    ? config.minTargetCount
+    : config.maxTargetCount === 1
+      ? (targetIndices.length > 0 ? 1 : 0)
+      : Math.max(config.minTargetCount, Math.round(CONTRACT_SIZE * config.targetRatio));
 
   if (targetCount > 0 && targetIndices.length === 0) return null;
 
@@ -336,14 +414,25 @@ export async function optimizeAllTiers(
   const usedSignatures = new Set<string>();
   const originalCandidates = baseCtx.candidates;
 
-  for (const config of TIER_CONFIGS) {
+  for (const rawConfig of TIER_CONFIGS) {
+    const config = resolveTierConfig(rawConfig, baseCtx);
+    if (!config) continue;
+
     const tierCandidates = filterCandidatesForTier(originalCandidates, config);
     if (tierCandidates.length < 10) continue;
+
+    const collectionCandidates = config.targetCollectionId
+      ? tierCandidates.filter((candidate) => candidate.collectionId === config.targetCollectionId)
+      : tierCandidates.filter((candidate) => candidate.isTargetCollection);
+    if (config.targetCollectionId && collectionCandidates.length < config.minTargetCount) continue;
 
     baseCtx.candidates = tierCandidates;
     const ctx = wrapContextWithConstraints(baseCtx, config);
 
-    const seeds = generateTierSeeds(ctx, config.targetRatio);
+    const seeds = generateTierSeeds(ctx, config.targetRatio, {
+      targetCollectionId: config.targetCollectionId,
+      minTargetInputs: config.minTargetCount,
+    });
     const seedEvals = seeds
       .map((s) => {
         const ev = ctx.evaluate(s);

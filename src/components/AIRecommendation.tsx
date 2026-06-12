@@ -64,4 +64,5 @@ const TIER_LABELS: Record<string, string> = {
   float_safe: '◎ Float ideal (econômico)',
   balanced: '$$ Equilibrado',
   premium: '$$$ Maior chance',
+  target_60: '🎯 60% chance no alvo',
 };

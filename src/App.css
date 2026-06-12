@@ -676,6 +676,7 @@ input:focus, select:focus {
 .contract-card.tier-float_safe { border-left: 3px solid #818cf8; }
 .contract-card.tier-balanced { border-left: 3px solid var(--accent); }
 .contract-card.tier-premium { border-left: 3px solid var(--warning); }
+.contract-card.tier-target_60 { border-left: 3px solid #f97316; }
 .contract-card.tier-ai_best { border-left: 3px solid var(--purple); }
 .contract-card.tier-min_loss { border-left: 3px solid #60a5fa; }
 

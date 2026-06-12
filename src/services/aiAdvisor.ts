@@ -23,6 +23,7 @@ const TIER_LABELS: Record<string, string> = {
   float_safe: '◎ Float ideal (econômico)',
   balanced: '$$ Equilibrado',
   premium: '$$$ Maior chance',
+  target_60: '🎯 60% chance no alvo',
 };
 
 /**
@@ -32,7 +33,7 @@ export function generateAIRecommendation(
   contracts: TradeUpContract[],
 ): AIRecommendation {
   const tiers = contracts.filter((c) =>
-    ['budget', 'one_target', 'float_safe', 'balanced', 'premium'].includes(c.tier),
+    ['budget', 'one_target', 'float_safe', 'balanced', 'premium', 'target_60'].includes(c.tier),
   );
   const referenceBudget = Math.max(
     ...contracts.map((contract) => contract.evMetrics.totalCost),
@@ -103,12 +104,14 @@ function buildTierInsight(contract: TradeUpContract, budget: number): TierInsigh
     budget: 'Economia máxima',
     balanced: 'Equilíbrio custo/chance',
     premium: 'Máxima chance de sucesso',
+    target_60: 'Alta chance na skin alvo',
   };
 
   const reasons: Record<string, string> = {
     budget: 'Prioriza skins baratas de múltiplas coleções para minimizar investimento.',
     balanced: 'Combina custo moderado com boa probabilidade de obter a skin alvo.',
     premium: 'Investe mais em skins da coleção alvo para maximizar a chance de drop.',
+    target_60: 'Concentra entradas na coleção com melhor odds para atingir pelo menos 60% na skin alvo.',
   };
 
   return {

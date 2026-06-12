@@ -126,7 +126,7 @@ export interface FloatMetrics {
 /** Contrato completo otimizado */
 export interface TradeUpContract {
   id: string;
-  tier: 'budget' | 'one_target' | 'float_safe' | 'balanced' | 'premium' | 'ai_best' | 'min_loss';
+  tier: 'budget' | 'one_target' | 'float_safe' | 'balanced' | 'premium' | 'target_60' | 'ai_best' | 'min_loss';
   tierLabel: string;
   inputs: ContractInput[];
   outputs: ContractOutput[];

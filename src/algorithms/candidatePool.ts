@@ -70,6 +70,23 @@ function buildPool(
   return mergePools(targetPool, otherPool, limit);
 }
 
+/** Pool focado em uma coleção específica + fillers baratos de outras coleções. */
+export function buildTargetHeavyPool(
+  candidates: CandidateListing[],
+  collectionId: string,
+  limit = 50,
+): CandidateListing[] {
+  const collectionPool = candidates
+    .filter((candidate) => candidate.collectionId === collectionId)
+    .sort((a, b) => a.floatFitScore - b.floatFitScore || a.price - b.price);
+
+  const fillerPool = candidates
+    .filter((candidate) => candidate.collectionId !== collectionId && !candidate.isTargetCollection)
+    .sort((a, b) => a.price - b.price || a.floatFitScore - b.floatFitScore);
+
+  return mergePools(collectionPool, fillerPool, limit);
+}
+
 /** Pool econômico: prioriza skins baratas com float aceitável. */
 export function buildCheapCandidatePool(
   candidates: CandidateListing[],
