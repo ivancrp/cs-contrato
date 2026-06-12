@@ -1,4 +1,4 @@
-import type { TradeUpContract } from '../models/types';
+import type { OptimizationMode, TradeUpContract } from '../models/types';
 import { formatCurrency, formatPercent } from '../utils/format';
 
 export interface TierInsight {

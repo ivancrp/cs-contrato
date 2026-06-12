@@ -120,7 +120,7 @@ export async function buildCandidatePool(
 
   for (const item of candidates) {
     const floats = FLOAT_SAMPLES.filter(
-      (f) => f <= params.maxFloat && f >= item.minFloat,
+      (f) => f <= maxFloat && f >= item.minFloat,
     );
 
     for (const f of floats) {
@@ -221,7 +221,9 @@ export async function createEvaluationContext(
   candidates: CandidateListing[],
   params: TargetSearchParams,
 ): Promise<EvaluationContext> {
-  const priceLookup = await createPriceLookup(params.marketplace);
+  const resolvedParams = resolveSearchDefaults(params, candidates);
+  const maxFloat = resolvedParams.maxFloat;
+  const priceLookup = await createPriceLookup(resolvedParams.marketplace);
   const priceCache = new Map<string, number>();
 
   const syncPriceLookup = (itemId: string, expectedFloat: number): number => {
@@ -253,19 +255,19 @@ export async function createEvaluationContext(
     (i) => i.rarity === targetSkin.rarity && i.stattrak === targetSkin.stattrak,
   );
   for (const item of outputItems) {
-    const key = `${item.id}-${(params.maxFloat ?? wearToMaxFloat(params.wear)).toFixed(4)}`;
+    const key = `${item.id}-${maxFloat.toFixed(4)}`;
     if (!priceCache.has(key)) {
-      priceCache.set(key, await priceLookup(item.id, params.maxFloat));
+      priceCache.set(key, await priceLookup(item.id, maxFloat));
     }
   }
 
   const ctx: EvaluationContext = {
     candidates,
     targetSkin,
-    budget: params.budget,
-    mode: params.mode,
+    budget: resolvedParams.budget,
+    mode: resolvedParams.mode,
     evaluate: (combination: Combination) => {
-      const inputs = combinationToInputs(combination, ctx.candidates, params.marketplace);
+      const inputs = combinationToInputs(combination, ctx.candidates, resolvedParams.marketplace);
       const validation = validateContractInputs(inputs, targetSkin);
       if (!validation.valid) {
         return {
@@ -300,8 +302,8 @@ export async function createEvaluationContext(
           totalCost,
           targetSkinId: targetSkin.id,
           expectedFloat: floatMetrics.expectedOutputFloat,
-          maxFloat: params.maxFloat ?? wearToMaxFloat(params.wear),
-          budget: params.budget ?? estimateAutoBudget(ctx.candidates),
+          maxFloat,
+          budget: resolvedParams.budget,
         },
         ctx.mode,
       );
