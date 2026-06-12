@@ -1,6 +1,9 @@
 import {
   buildCheapCandidatePool,
   computeFloorCost,
+  computePriceCap,
+  extractTargetCollectionPool,
+  hasTargetCollectionCandidates,
   isFeasibleContract,
 } from '../algorithms/candidatePool';
 import { greedyOptimize } from '../algorithms/heuristic';
@@ -58,7 +61,15 @@ export function invalidateContractCaches(): void {
 
 function trimCandidatePool(listings: CandidateListing[]): CandidateListing[] {
   if (listings.length <= MAX_CANDIDATE_POOL) return listings;
-  return buildCheapCandidatePool(listings, MAX_CANDIDATE_POOL);
+
+  const cap = computePriceCap(listings);
+  const targetPool = extractTargetCollectionPool(listings);
+  const otherPool = listings
+    .filter((listing) => !listing.isTargetCollection && listing.price <= cap * 1.4)
+    .sort((a, b) => a.price - b.price || a.floatFitScore - b.floatFitScore);
+
+  const merged = [...targetPool, ...otherPool];
+  return merged.slice(0, MAX_CANDIDATE_POOL);
 }
 
 /** Estima teto de orçamento a partir do menor custo viável de 10 skins. */
@@ -253,12 +264,14 @@ export async function createEvaluationContext(
   }
 
   const floorCost = computeFloorCost(candidates);
+  const requiresTargetCollection = hasTargetCollectionCandidates(candidates);
 
   const ctx: EvaluationContext = {
     candidates,
     targetSkin,
     budget: resolvedParams.budget,
     floorCost,
+    requiresTargetCollection,
     mode: resolvedParams.mode,
     evaluate: (combination: Combination) => {
       const inputs = combinationToInputs(combination, ctx.candidates, resolvedParams.marketplace);
@@ -362,6 +375,16 @@ async function contractFromOptimizationResult(
     prepared.resolvedParams.marketplace,
   );
   assertValidContractInputs(inputs, prepared.targetSkin);
+
+  if (prepared.baseCtx.requiresTargetCollection) {
+    const targetCollectionIds = new Set(
+      findCollectionsForTarget(prepared.targetSkin).map((collection) => collection.id),
+    );
+    const hasTarget = inputs.some((input) => targetCollectionIds.has(input.item.collectionId));
+    if (!hasTarget) {
+      throw new Error(`Contrato ${tierLabel} sem skin da coleção alvo`);
+    }
+  }
 
   return calculateContract(
     inputs,

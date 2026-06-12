@@ -23,6 +23,17 @@ export function computePriceCap(candidates: CandidateListing[]): number {
   return Math.max(median * 2.2, cheapAvg * 3.5, 15);
 }
 
+/** Skins da coleção alvo — nunca filtradas por preço. */
+export function extractTargetCollectionPool(candidates: CandidateListing[]): CandidateListing[] {
+  return candidates
+    .filter((candidate) => candidate.isTargetCollection)
+    .sort((a, b) => a.price - b.price || a.floatFitScore - b.floatFitScore);
+}
+
+export function hasTargetCollectionCandidates(candidates: CandidateListing[]): boolean {
+  return candidates.some((candidate) => candidate.isTargetCollection);
+}
+
 function mergePools(
   targetPool: CandidateListing[],
   otherPool: CandidateListing[],
@@ -33,7 +44,30 @@ function mergePools(
     if (merged.length >= limit) break;
     merged.push(candidate);
   }
-  return merged.length >= 10 ? merged : [...targetPool, ...otherPool].slice(0, limit);
+
+  if (merged.length >= 10) return merged.slice(0, limit);
+
+  for (const candidate of otherPool) {
+    if (merged.length >= limit) break;
+    if (!merged.includes(candidate)) merged.push(candidate);
+  }
+
+  return merged.length >= 10 ? merged.slice(0, limit) : merged;
+}
+
+function buildPool(
+  candidates: CandidateListing[],
+  otherCapMultiplier: number,
+  sortOthers: (a: CandidateListing, b: CandidateListing) => number,
+  limit: number,
+): CandidateListing[] {
+  const cap = computePriceCap(candidates);
+  const targetPool = extractTargetCollectionPool(candidates);
+  const otherPool = candidates
+    .filter((candidate) => !candidate.isTargetCollection && candidate.price <= cap * otherCapMultiplier)
+    .sort(sortOthers);
+
+  return mergePools(targetPool, otherPool, limit);
 }
 
 /** Pool econômico: prioriza skins baratas com float aceitável. */
@@ -41,17 +75,12 @@ export function buildCheapCandidatePool(
   candidates: CandidateListing[],
   limit = 45,
 ): CandidateListing[] {
-  const cap = computePriceCap(candidates);
-
-  const targetPool = candidates
-    .filter((candidate) => candidate.isTargetCollection && candidate.price <= cap * 1.8)
-    .sort((a, b) => a.price - b.price || a.floatFitScore - b.floatFitScore);
-
-  const otherPool = candidates
-    .filter((candidate) => !candidate.isTargetCollection && candidate.price <= cap)
-    .sort((a, b) => a.price - b.price || a.floatFitScore - b.floatFitScore);
-
-  return mergePools(targetPool, otherPool, limit);
+  return buildPool(
+    candidates,
+    1,
+    (a, b) => a.price - b.price || a.floatFitScore - b.floatFitScore,
+    limit,
+  );
 }
 
 /** Pool focado em atingir o desgate com menor custo possível. */
@@ -59,30 +88,25 @@ export function buildFloatFocusedPool(
   candidates: CandidateListing[],
   limit = 45,
 ): CandidateListing[] {
-  const cap = computePriceCap(candidates);
-
-  return [...candidates]
-    .filter((candidate) => candidate.price <= cap)
-    .sort((a, b) => a.floatFitScore - b.floatFitScore || a.price - b.price)
-    .slice(0, limit);
+  return buildPool(
+    candidates,
+    1,
+    (a, b) => a.floatFitScore - b.floatFitScore || a.price - b.price,
+    limit,
+  );
 }
 
-/** Pool completo, mas sem outliers de preço. */
+/** Pool completo, mas sem outliers de preço nas fillers. */
 export function buildBalancedCandidatePool(
   candidates: CandidateListing[],
   limit = 55,
 ): CandidateListing[] {
-  const cap = computePriceCap(candidates) * 1.4;
-
-  const targetPool = candidates
-    .filter((candidate) => candidate.isTargetCollection && candidate.price <= cap)
-    .sort((a, b) => a.floatFitScore - b.floatFitScore || a.price - b.price);
-
-  const otherPool = candidates
-    .filter((candidate) => !candidate.isTargetCollection && candidate.price <= cap)
-    .sort((a, b) => a.floatFitScore - b.floatFitScore || a.price - b.price);
-
-  return mergePools(targetPool, otherPool, limit);
+  return buildPool(
+    candidates,
+    1.4,
+    (a, b) => a.floatFitScore - b.floatFitScore || a.price - b.price,
+    limit,
+  );
 }
 
 export function isFeasibleContract(

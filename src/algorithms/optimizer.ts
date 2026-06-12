@@ -4,6 +4,7 @@ import {
   buildBalancedCandidatePool,
   buildCheapCandidatePool,
   buildFloatFocusedPool,
+  extractTargetCollectionPool,
   isFeasibleContract,
 } from './candidatePool';
 import { branchAndBoundOptimize } from './branchAndBound';
@@ -147,7 +148,7 @@ function applyTargetPenalty(
   let penalty = 0;
 
   if (hasTargetPool && targetCount === 0) {
-    penalty += 35;
+    return 0;
   }
 
   if (config.maxTargetCount === 1 && targetCount !== 1) {
@@ -202,8 +203,14 @@ function isValidOptimizationResult(
   }
 
   const targetCount = countTargetItems(result.combination, ctx.candidates);
-  const hasTargetPool = ctx.candidates.some((candidate) => candidate.isTargetCollection);
-  if (hasTargetPool && targetCount < config.minTargetCount) return false;
+
+  if (ctx.requiresTargetCollection && targetCount < config.minTargetCount) {
+    return false;
+  }
+
+  if (ctx.requiresTargetCollection && targetCount < 1) {
+    return false;
+  }
 
   return validateContractInputs(result.inputs, ctx.targetSkin).valid;
 }
@@ -226,7 +233,14 @@ function wrapContextWithConstraints(
   baseCtx: EvaluationContext,
   config: TierOptimizationConfig,
 ): EvaluationContext {
-  const budget = Math.round(baseCtx.floorCost * config.budgetMultiplier * 100) / 100;
+  let budget = Math.round(baseCtx.floorCost * config.budgetMultiplier * 100) / 100;
+
+  if (baseCtx.requiresTargetCollection) {
+    const cheapestTarget = extractTargetCollectionPool(baseCtx.candidates)[0]?.price ?? 0;
+    if (cheapestTarget > 0) {
+      budget = Math.max(budget, cheapestTarget + baseCtx.floorCost * 0.85);
+    }
+  }
 
   return {
     ...baseCtx,
@@ -360,6 +374,18 @@ export async function optimizeAllTiers(
       const fallback = pickBestAlternative(ctx, seeds, usedSignatures, config)
         ?? buildCheapFallback(ctx, config);
       if (fallback && isValidOptimizationResult(fallback, ctx, config)) best = fallback;
+    }
+
+    if (
+      best &&
+      ctx.requiresTargetCollection &&
+      countTargetItems(best.combination, tierCandidates) < config.minTargetCount
+    ) {
+      const withTarget = buildCheapFallback(ctx, config);
+      if (withTarget && isValidOptimizationResult(withTarget, ctx, config)) {
+        best = withTarget;
+        algorithm = 'heuristic';
+      }
     }
 
     if (best && isValidOptimizationResult(best, ctx, config)) {

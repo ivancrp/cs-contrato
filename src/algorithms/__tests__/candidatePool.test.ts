@@ -35,8 +35,10 @@ describe('candidatePool', () => {
       listing(600),
     ];
     const cheap = buildCheapCandidatePool(pool);
-    expect(cheap.every((candidate) => candidate.price <= computePriceCap(pool) * 1.8)).toBe(true);
-    expect(cheap.some((candidate) => candidate.price >= 500)).toBe(false);
+    expect(cheap.filter((candidate) => !candidate.isTargetCollection).every(
+      (candidate) => candidate.price <= computePriceCap(pool),
+    )).toBe(true);
+    expect(cheap.some((candidate) => candidate.isTargetCollection && candidate.price >= 500)).toBe(true);
   });
 
   it('rejeita contrato com EV muito abaixo do custo', () => {

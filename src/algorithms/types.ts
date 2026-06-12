@@ -31,6 +31,8 @@ export interface EvaluationContext {
   budget: number;
   /** Custo de referência das 10 skins mais baratas. */
   floorCost: number;
+  /** Se existem entradas da coleção da skin alvo no pool original. */
+  requiresTargetCollection: boolean;
   mode: OptimizationMode;
 }
 
