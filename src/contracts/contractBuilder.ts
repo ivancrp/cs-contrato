@@ -12,19 +12,9 @@ import { calculateContractScore, scoreToStars } from '../algorithms/scoring';
 import type { CandidateListing, Combination, EvaluationContext } from '../algorithms/types';
 import { findSkinById, findSkinByName, getCollections } from '../data/collections';
 import { buildContractOutputs, getInputRarityForTarget } from '../math/probability';
-import { calculateFloatMetrics } from '../math/float';
-import { validateContractInputs, assertValidContractInputs } from '../math/contractRules';
-import type {
-  ContractInput,
-  MarketListing,
-  SkinItem,
-  TargetSearchParams,
-  TradeUpContract,
-} from '../models/types';
-import { priceService } from '../services/priceService';
-import { buildMarketHashName } from '../utils/format';
-import { normalizeFloat } from '../math/float';
+import { calculateFloatMetrics, normalizeFloat } from '../math/float';
 import { floatToWear, maxInputFloatForTargetOutput, requiredNormalizedWear, wearToMaxFloat } from '../math/wear';
+import { yieldToMain } from '../utils/yieldToMain';
 import { calculateContract, findCollectionsForTarget, findInputCandidates } from './tradeUpCalculator';
 
 const TIER_LABELS: Record<string, string> = {
@@ -38,8 +28,8 @@ const TIER_LABELS: Record<string, string> = {
   min_loss: '🛡 Menor Perda Possível',
 };
 
-const FLOAT_SAMPLES = [0.01, 0.05, 0.07, 0.1, 0.15, 0.25];
 const MAX_CANDIDATE_POOL = 60;
+const MARKET_BATCH_SIZE = 8;
 
 let cachedItemsById: Map<string, SkinItem> | null = null;
 
@@ -109,7 +99,26 @@ export function resolveTargetSkin(params: TargetSearchParams): SkinItem {
 }
 
 /**
- * Constrói pool de candidatos com preços reais do Steam Market.
+ * Busca listings reais do mercado com floats compatíveis para uma skin de entrada.
+ */
+async function fetchMarketListingsForItem(
+  item: SkinItem,
+  maxAllowed: number,
+  marketplace: TargetSearchParams['marketplace'],
+) {
+  const baseHash = buildMarketHashName(item.name, item.stattrak, floatToWear(item.minFloat));
+  const listings = await marketService.getBestListings(baseHash, marketplace, maxAllowed);
+  return listings.filter(
+    (listing) =>
+      listing.float >= item.minFloat &&
+      listing.float <= maxAllowed &&
+      listing.price > 0 &&
+      priceService.hasMarketPrice(item.name, item.stattrak, listing.wear),
+  );
+}
+
+/**
+ * Constrói pool de candidatos com listings verificados no mercado (preço + float).
  */
 export async function buildCandidatePool(
   targetSkin: SkinItem,
@@ -128,37 +137,41 @@ export async function buildCandidatePool(
 
   const idealNorm = requiredNormalizedWear(maxFloat, targetSkin);
   const listings: CandidateListing[] = [];
+  const seenListingKeys = new Set<string>();
 
-  for (const item of candidates) {
+  for (let index = 0; index < candidates.length; index += 1) {
+    const item = candidates[index];
     const maxAllowed = maxInputFloatForTargetOutput(maxFloat, item, targetSkin);
-    const floats = FLOAT_SAMPLES.filter(
-      (f) => f >= item.minFloat && f <= maxAllowed,
+    const marketListings = await fetchMarketListingsForItem(
+      item,
+      maxAllowed,
+      params.marketplace,
     );
 
-    for (const f of floats) {
-      const price = priceService.getPriceForFloatSync(
-        item.name,
-        item.stattrak,
-        f,
-        params.marketplace,
-      );
+    for (const marketListing of marketListings) {
+      const dedupeKey = `${item.id}-${marketListing.float.toFixed(4)}`;
+      if (seenListingKeys.has(dedupeKey)) continue;
+      seenListingKeys.add(dedupeKey);
 
-      if (price <= 0) continue;
-
-      const normalized = normalizeFloat(f, item);
+      const normalized = normalizeFloat(marketListing.float, item);
 
       listings.push({
-        listingId: `${item.id}-${f}-${params.marketplace}`,
+        listingId: marketListing.id,
         itemId: item.id,
         collectionId: item.collectionId,
         rarity: item.rarity,
         stattrak: item.stattrak,
-        price,
-        float: f,
+        price: marketListing.price,
+        float: marketListing.float,
         normalizedFloat: normalized,
         floatFitScore: Math.abs(normalized - idealNorm),
         isTargetCollection: targetCollectionIds.has(item.collectionId),
+        marketVerified: true,
       });
+    }
+
+    if ((index + 1) % MARKET_BATCH_SIZE === 0) {
+      await yieldToMain();
     }
   }
 
@@ -348,7 +361,9 @@ export async function prepareContractSearch(
   const draftParams = resolveSearchDefaults(params);
   const candidates = await buildCandidatePool(targetSkin, draftParams);
   if (candidates.length === 0) {
-    throw new Error('Nenhum candidato de entrada encontrado');
+    throw new Error(
+      'Nenhuma skin de entrada disponível no mercado com float compatível para este desgate. Tente outro wear ou marketplace.',
+    );
   }
 
   const resolvedParams = resolveSearchDefaults(draftParams, candidates);

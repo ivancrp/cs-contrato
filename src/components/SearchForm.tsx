@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import type { Marketplace, TargetSearchParams, WearTier, SkinItem } from '../models/types';
 import { wearToMaxFloat } from '../math/wear';
+import { getRarityLabel } from '../utils/rarity';
 import { SkinAutocomplete } from './SkinAutocomplete';
+import { SkinImage } from './SkinImage';
 import { MarketFilter } from './MarketFilter';
 
 interface SearchFormProps {
@@ -26,11 +28,12 @@ export function SearchForm({
   const [stattrak, setStattrak] = useState(false);
   const [wear, setWear] = useState<WearTier>('Factory New');
   const [marketplace, setMarketplace] = useState<Marketplace>('all');
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  const buildParams = (skin?: SkinItem | null): TargetSearchParams => ({
-    skinName: skin?.name ?? skinName,
-    targetSkinId: skin?.id ?? selectedSkin?.id,
-    stattrak: skin?.stattrak ?? stattrak,
+  const buildParams = (): TargetSearchParams => ({
+    skinName: selectedSkin?.name ?? skinName,
+    targetSkinId: selectedSkin?.id,
+    stattrak: selectedSkin?.stattrak ?? stattrak,
     wear,
     maxFloat: wearToMaxFloat(wear),
     marketplace,
@@ -40,19 +43,41 @@ export function SearchForm({
     setSelectedSkin(skin);
     setSkinName(skin.name);
     setStattrak(skin.stattrak);
+    setValidationError(null);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedSkin(null);
+    setSkinName('');
+    setValidationError(null);
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedSkin) {
+      setValidationError('Selecione uma skin da lista antes de calcular.');
+      return;
+    }
+    if (selectedSkin.stattrak !== stattrak) {
+      setValidationError(
+        stattrak
+          ? 'Esta skin não possui versão StatTrak.'
+          : 'Ative StatTrak para esta skin alvo.',
+      );
+      return;
+    }
+    setValidationError(null);
+    onSearch(buildParams());
   };
 
   return (
-    <form
-      className="search-form card"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSearch(buildParams());
-      }}
-    >
+    <form className="search-form card" onSubmit={handleSubmit}>
       <h2>Configurar Trade Up</h2>
       <p className="search-form-hint">
-        Pesquise a skin alvo. O sistema gera automaticamente vários contratos com custo e chance de lucro.
+        Pesquise e selecione a skin alvo. Os contratos só são calculados após clicar em
+        {' '}
+        <strong>Calcular Contratos</strong>
+        , consultando disponibilidade e preços reais do mercado.
       </p>
 
       <div className="form-grid">
@@ -61,14 +86,41 @@ export function SearchForm({
           <SkinAutocomplete
             value={skinName}
             stattrak={stattrak}
+            selectedSkinId={selectedSkin?.id}
             onChange={(value) => {
               setSkinName(value);
-              setSelectedSkin(null);
+              if (selectedSkin && value !== selectedSkin.name) {
+                setSelectedSkin(null);
+              }
+              setValidationError(null);
             }}
             onSelect={handleSkinSelect}
-            placeholder="Digite para buscar na API Steam..."
+            placeholder="Ex.: AK-47 | Redline, M4A1-S | Black Lotus..."
           />
         </label>
+
+        {selectedSkin && (
+          <div className="selected-skin-preview">
+            <SkinImage name={selectedSkin.name} rarity={selectedSkin.rarity} size="md" />
+            <div className="selected-skin-info">
+              <span className="selected-skin-name">
+                {selectedSkin.stattrak && 'StatTrak™ '}
+                {selectedSkin.name}
+              </span>
+              <span className="selected-skin-meta">
+                {getRarityLabel(selectedSkin.rarity)}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="btn ghost btn-sm"
+              onClick={handleClearSelection}
+              aria-label="Limpar seleção"
+            >
+              Trocar
+            </button>
+          </div>
+        )}
 
         <div className="form-field-stattrak">
           <span className="field-label">Versão</span>
@@ -83,6 +135,7 @@ export function SearchForm({
               onClick={() => {
                 setStattrak((current) => !current);
                 setSelectedSkin(null);
+                setValidationError(null);
               }}
             >
               <span className="toggle-knob" />
@@ -104,9 +157,17 @@ export function SearchForm({
       <label className="market-label">Marketplace</label>
       <MarketFilter value={marketplace} onChange={setMarketplace} />
 
+      {validationError && (
+        <p className="form-validation-error" role="alert">{validationError}</p>
+      )}
+
       <div className="form-actions">
-        <button type="submit" className="btn primary" disabled={loading}>
-          {loading ? 'Calculando contratos...' : 'Calcular Contratos'}
+        <button
+          type="submit"
+          className="btn primary"
+          disabled={loading || !selectedSkin}
+        >
+          {loading ? 'Consultando mercado e calculando...' : 'Calcular Contratos'}
         </button>
       </div>
     </form>

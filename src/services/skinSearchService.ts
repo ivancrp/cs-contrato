@@ -28,15 +28,14 @@ function enrichSkin(skin: SkinItem): SkinSearchResult {
 }
 
 /**
- * Busca skins alvo na API Steam (CSGO-API) com catálogo atualizado.
+ * Busca skins alvo no catálogo local (sem rede).
+ * Usado pelo autocomplete — não dispara cálculos nem refresh de API.
  */
-export async function searchTargetSkins(
+export function searchTargetSkinsSync(
   query: string,
   stattrak?: boolean,
   limit = 20,
-): Promise<SkinSearchResult[]> {
-  await catalogStore.refresh();
-
+): SkinSearchResult[] {
   const normalized = normalizeSkinName(query);
   const catalog = getAllSkins();
   let pool = catalog.filter(
@@ -61,6 +60,19 @@ export async function searchTargetSkins(
     .map(enrichSkin);
 }
 
+/**
+ * Busca skins alvo com catálogo atualizado da API Steam (CSGO-API).
+ */
+export async function searchTargetSkins(
+  query: string,
+  stattrak?: boolean,
+  limit = 20,
+): Promise<SkinSearchResult[]> {
+  await catalogStore.refresh();
+  return searchTargetSkinsSync(query, stattrak, limit);
+}
+
 export const skinSearchService = {
   search: searchTargetSkins,
+  searchSync: searchTargetSkinsSync,
 };

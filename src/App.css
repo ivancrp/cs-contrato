@@ -174,8 +174,69 @@ input:focus, select:focus {
   font-size: 0.85rem;
 }
 
-.autocomplete-list li:hover {
+.autocomplete-list li:hover,
+.autocomplete-list li.is-active {
   background: var(--bg-hover);
+}
+
+.autocomplete-list li.is-selected {
+  border-left: 2px solid var(--accent);
+}
+
+.autocomplete-hint {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.selected-skin-preview {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem 1rem;
+  background: rgba(79, 140, 255, 0.08);
+  border: 1px solid rgba(79, 140, 255, 0.25);
+  border-radius: 10px;
+}
+
+.selected-skin-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.selected-skin-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.selected-skin-meta {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.form-validation-error {
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0.85rem;
+  background: rgba(244, 113, 113, 0.1);
+  border: 1px solid rgba(244, 113, 113, 0.35);
+  border-radius: 8px;
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+.search-form-hint strong {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .rarity-dot {

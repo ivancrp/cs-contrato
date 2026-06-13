@@ -19,6 +19,7 @@ function listing(price: number, target = false): CandidateListing {
     normalizedFloat: 0.15,
     floatFitScore: 0.05,
     isTargetCollection: target,
+    marketVerified: true,
   };
 }
 

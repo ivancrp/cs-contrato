@@ -13,6 +13,8 @@ export interface CandidateListing {
   /** Distância do wear ideal para atingir o desgate alvo (menor = melhor). */
   floatFitScore: number;
   isTargetCollection: boolean;
+  /** Listing com preço confirmado no mercado para o float/wear correspondente. */
+  marketVerified: boolean;
 }
 
 /** Representação compacta: índices no pool de candidatos */

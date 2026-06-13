@@ -52,6 +52,7 @@ describe('resolveSearchDefaults', () => {
       normalizedFloat: 0.15,
       floatFitScore: 0.08,
       isTargetCollection: index < 4,
+      marketVerified: true,
     }));
 
     expect(estimateAutoBudget(candidates)).toBeGreaterThan(100);

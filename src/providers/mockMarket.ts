@@ -58,18 +58,21 @@ function createProvider(marketplace: Exclude<Marketplace, 'all' | 'pricempire'>)
       const listings: MarketListing[] = [];
 
       for (const [i, f] of floats.entries()) {
-        const price = await priceService.getPriceForFloat(baseName, isStatTrak, f, marketplace);
+        const wear = floatToWear(f);
+        if (!priceService.hasMarketPrice(baseName, isStatTrak, wear)) continue;
+
+        const price = await priceService.getPrice(baseName, isStatTrak, wear, marketplace);
         if (price <= 0) continue;
 
         listings.push({
           id: `${marketplace}-${marketHashName}-${i}`,
           itemId: marketHashName,
-          marketHashName: buildMarketHashName(baseName, isStatTrak, floatToWear(f)),
+          marketHashName: buildMarketHashName(baseName, isStatTrak, wear),
           marketplace,
           price,
           currency: 'BRL',
           float: f,
-          wear: floatToWear(f),
+          wear,
           stattrak: isStatTrak,
         });
       }
