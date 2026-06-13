@@ -24,7 +24,7 @@ import type {
 import { priceService } from '../services/priceService';
 import { marketService } from '../services/marketService';
 import { buildMarketHashName } from '../utils/format';
-import { floatToWear, maxInputFloatForTargetOutput, requiredNormalizedWear, wearToMaxFloat } from '../math/wear';
+import { floatToWear, getWearTiersInRange, maxInputFloatForTargetOutput, requiredNormalizedWear, wearToMaxFloat } from '../math/wear';
 import { yieldToMain } from '../utils/yieldToMain';
 import { calculateContract, findCollectionsForTarget, findInputCandidates } from './tradeUpCalculator';
 
@@ -110,22 +110,37 @@ export function resolveTargetSkin(params: TargetSearchParams): SkinItem {
 }
 
 /**
- * Busca listings reais do mercado com floats compatíveis para uma skin de entrada.
+ * Busca listings do mercado em todos os wears compatíveis com o float máximo.
  */
 async function fetchMarketListingsForItem(
   item: SkinItem,
   maxAllowed: number,
   marketplace: TargetSearchParams['marketplace'],
 ) {
-  const baseHash = buildMarketHashName(item.name, item.stattrak, floatToWear(item.minFloat));
-  const listings = await marketService.getBestListings(baseHash, marketplace, maxAllowed);
-  return listings.filter(
-    (listing) =>
-      listing.float >= item.minFloat &&
-      listing.float <= maxAllowed &&
-      listing.price > 0 &&
-      priceService.hasMarketPrice(item.name, item.stattrak, listing.wear),
-  );
+  const wears = getWearTiersInRange(item.minFloat, maxAllowed);
+  const allListings: MarketListing[] = [];
+  const seenIds = new Set<string>();
+
+  for (const wear of wears) {
+    const hash = buildMarketHashName(item.name, item.stattrak, wear);
+    const listings = await marketService.getBestListings(hash, marketplace, maxAllowed);
+
+    for (const listing of listings) {
+      if (listing.float < item.minFloat || listing.float > maxAllowed) continue;
+      if (listing.price <= 0) continue;
+
+      const isLiveListing = listing.marketplace === 'csfloat' && listing.id.startsWith('csfloat-');
+      if (!isLiveListing && !priceService.hasMarketPrice(item.name, item.stattrak, listing.wear)) {
+        continue;
+      }
+
+      if (seenIds.has(listing.id)) continue;
+      seenIds.add(listing.id);
+      allListings.push(listing);
+    }
+  }
+
+  return allListings;
 }
 
 /**
@@ -351,6 +366,23 @@ export async function createEvaluationContext(
   };
 
   return ctx;
+}
+
+export function summarizeMarketAvailability(
+  candidates: CandidateListing[],
+  marketplace: TargetSearchParams['marketplace'],
+) {
+  const skinIds = new Set(candidates.map((candidate) => candidate.itemId));
+  const liveListings = candidates.filter(
+    (candidate) => candidate.listingId.startsWith('csfloat-') || candidate.marketVerified,
+  ).length;
+
+  return {
+    marketplace,
+    listingsFound: candidates.length,
+    skinsWithListings: skinIds.size,
+    liveListings,
+  };
 }
 
 export interface ContractSearchContext {

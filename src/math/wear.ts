@@ -35,6 +35,22 @@ export function wearToMaxFloat(wear: WearTier): number {
   return WEAR_BOUNDS[wear].max;
 }
 
+/** Tiers de wear que intersectam um intervalo de float. */
+export function getWearTiersInRange(minFloat: number, maxFloat: number): WearTier[] {
+  const tiers: WearTier[] = [
+    'Factory New',
+    'Minimal Wear',
+    'Field-Tested',
+    'Well-Worn',
+    'Battle-Scarred',
+  ];
+
+  return tiers.filter((wear) => {
+    const { min, max } = WEAR_BOUNDS[wear];
+    return max >= minFloat && min <= maxFloat;
+  });
+}
+
 /**
  * Wear normalizado necessário na saída para atingir o float alvo.
  */

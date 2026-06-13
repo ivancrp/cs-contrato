@@ -1059,6 +1059,42 @@ input:focus, select:focus {
   border-radius: 5px;
 }
 
+.market-verified-badge {
+  flex-basis: 100%;
+  font-size: 0.62rem;
+  color: var(--success);
+  background: rgba(61, 214, 140, 0.1);
+  border: 1px solid rgba(61, 214, 140, 0.25);
+  border-radius: 5px;
+  padding: 0.2rem 0.4rem;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.skin-listing-links.compact .market-verified-badge {
+  font-size: 0.55rem;
+}
+
+.market-availability-banner {
+  margin-bottom: 1rem;
+  padding: 1rem 1.25rem;
+  background: rgba(61, 214, 140, 0.06);
+  border-color: rgba(61, 214, 140, 0.25);
+}
+
+.market-availability-banner strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--success);
+}
+
+.market-availability-banner p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
 .skin-listing-links .inspect-error {
   flex-basis: 100%;
   font-size: 0.65rem;

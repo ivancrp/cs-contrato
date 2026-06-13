@@ -59,6 +59,24 @@ function steamProxyHandler(
 
 export default defineConfig({
   plugins: [react(), steamImageProxy()],
+  server: {
+    proxy: {
+      '/api/csfloat': {
+        target: 'https://csfloat.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/csfloat/, '/api'),
+      },
+    },
+  },
+  preview: {
+    proxy: {
+      '/api/csfloat': {
+        target: 'https://csfloat.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/csfloat/, '/api'),
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

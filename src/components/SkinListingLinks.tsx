@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import type { Marketplace } from '../models/types';
+import { formatCurrency, formatFloat } from '../utils/format';
 import {
+  copyToClipboard,
   generateInspectLink,
   getMarketplaceLabel,
-  getMarketplaceSearchUrl,
   openInspectInGame,
   type InspectParams,
 } from '../services/inspectService';
@@ -11,19 +12,21 @@ import {
 interface SkinListingLinksProps {
   params: InspectParams;
   marketplace: Marketplace;
+  price?: number;
   compact?: boolean;
 }
 
-/** Links de inspeção in-game e busca no marketplace da listing. */
+/** Ações in-app: inspeção e confirmação de listing verificada no cálculo. */
 export function SkinListingLinks({
   params,
   marketplace,
+  price,
   compact = false,
 }: SkinListingLinksProps) {
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const marketUrl = getMarketplaceSearchUrl(params, marketplace);
   const marketLabel = getMarketplaceLabel(marketplace);
 
   const handleInspect = async () => {
@@ -43,26 +46,45 @@ export function SkinListingLinks({
     }
   };
 
+  const handleCopyInspect = async () => {
+    const url = await generateInspectLink(params);
+    if (!url) {
+      setError('Metadados não encontrados');
+      return;
+    }
+    const ok = await copyToClipboard(url);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   return (
     <div className={`skin-listing-links${compact ? ' compact' : ''}`}>
+      <span
+        className="market-verified-badge"
+        title={`Listing verificada no ${marketLabel} durante o cálculo`}
+      >
+        ✓ {marketLabel} · {formatFloat(params.float ?? 0)}
+        {price !== undefined && ` · ${formatCurrency(price)}`}
+      </span>
       <button
         type="button"
         className="btn-inspect primary"
-        title="Inspecionar no CS2"
+        title="Inspecionar no CS2 (sem sair do app)"
         disabled={loading}
         onClick={handleInspect}
       >
         {loading ? '…' : compact ? 'Inspecionar' : 'Inspecionar no CS2'}
       </button>
-      <a
-        href={marketUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="btn-inspect link"
-        title={`Buscar no ${marketLabel} (float ≤ ${params.float?.toFixed(4) ?? '—'})`}
+      <button
+        type="button"
+        className="btn-inspect"
+        title="Copiar link de inspeção"
+        onClick={handleCopyInspect}
       >
-        {compact ? marketLabel : `Ver no ${marketLabel}`}
-      </a>
+        {copied ? 'Copiado!' : 'Copiar link'}
+      </button>
       {error && <span className="inspect-error">{error}</span>}
     </div>
   );

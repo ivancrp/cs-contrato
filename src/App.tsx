@@ -69,6 +69,21 @@ function App() {
 
         {result && (
           <section className="results">
+            <div className="market-availability-banner card">
+              <strong>Mercado consultado internamente</strong>
+              <p>
+                {result.marketAvailability.listingsFound} listings com float compatível
+                em {result.marketAvailability.skinsWithListings} skins de entrada
+                {result.marketAvailability.liveListings > 0 && (
+                  <>
+                    {' '}
+                    ({result.marketAvailability.liveListings} com float real via API)
+                  </>
+                )}
+                . Nenhum redirecionamento — os contratos usam apenas skins verificadas.
+              </p>
+            </div>
+
             <div className="target-info card">
               <div className="target-info-content">
                 <SkinImage

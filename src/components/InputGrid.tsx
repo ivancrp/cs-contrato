@@ -35,6 +35,7 @@ export function InputGrid({ inputs, preview = false }: InputGridProps) {
             <SkinListingLinks
               compact={preview}
               marketplace={input.listing.marketplace}
+              price={input.listing.price}
               params={{
                 skinName: input.item.name,
                 stattrak: input.item.stattrak,

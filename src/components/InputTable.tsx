@@ -73,6 +73,7 @@ export function InputTable({ inputs }: InputTableProps) {
                   <SkinListingLinks
                     compact
                     marketplace={input.listing.marketplace}
+                    price={input.listing.price}
                     params={{
                       skinName: input.item.name,
                       stattrak: input.item.stattrak,

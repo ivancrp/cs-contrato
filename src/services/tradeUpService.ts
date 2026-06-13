@@ -4,6 +4,7 @@ import {
   findBestContract,
   prepareContractSearch,
   resolveTargetSkin,
+  summarizeMarketAvailability,
 } from '../contracts/contractBuilder';
 import { refreshCatalog } from '../data/collections';
 import { analyzeMinLossScenario } from '../math/ev';
@@ -17,6 +18,13 @@ import type {
 import { simulateContracts } from '../simulations/monteCarlo';
 import { generateAIRecommendation, type AIRecommendation } from './aiAdvisor';
 
+export interface MarketAvailabilitySummary {
+  marketplace: TargetSearchParams['marketplace'];
+  listingsFound: number;
+  skinsWithListings: number;
+  liveListings: number;
+}
+
 export interface TradeUpSearchResult {
   targetSkin: ReturnType<typeof resolveTargetSkin>;
   collections: string[];
@@ -24,6 +32,7 @@ export interface TradeUpSearchResult {
   aiRecommendation: AIRecommendation;
   minLossContract?: TradeUpContract;
   minLossAnalysis?: MinLossAnalysis;
+  marketAvailability: MarketAvailabilitySummary;
 }
 
 function contractSignature(contract: TradeUpContract): string {
@@ -98,6 +107,10 @@ export class TradeUpService {
       aiRecommendation,
       minLossContract,
       minLossAnalysis,
+      marketAvailability: summarizeMarketAvailability(
+        prepared.candidates,
+        params.marketplace,
+      ),
     };
   }
 

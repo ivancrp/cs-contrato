@@ -32,9 +32,15 @@ export async function generateInspectLink(params: InspectParams): Promise<string
   });
 }
 
-/** Abre o link de inspeção no CS2 (requer Steam + CS2 instalados). */
+/** Abre o link de inspeção no CS2 sem sair da página do app. */
 export function openInspectInGame(inspectUrl: string): void {
-  window.location.href = inspectUrl;
+  const anchor = document.createElement('a');
+  anchor.href = inspectUrl;
+  anchor.rel = 'noopener noreferrer';
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
 }
 
 /** URL do Steam Market para a skin com wear específico. */
