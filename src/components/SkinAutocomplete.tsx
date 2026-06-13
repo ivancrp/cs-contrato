@@ -53,9 +53,9 @@ export function SkinAutocomplete({
 
   const selectSkin = (skin: SkinSearchResult) => {
     onSelect(skin);
-    onChange(skin.name);
     setOpen(false);
     setActiveIndex(-1);
+    inputRef.current?.blur();
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -134,7 +134,10 @@ export function SkinAutocomplete({
                     : undefined
               }
               onMouseEnter={() => setActiveIndex(index)}
-              onClick={() => selectSkin(skin)}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                selectSkin(skin);
+              }}
             >
               <SkinImage name={skin.name} rarity={skin.rarity} size="sm" />
               <span className="autocomplete-text">

@@ -1,11 +1,11 @@
 import type { ContractInput } from '../models/types';
 import { formatCurrency, formatFloat } from '../utils/format';
 import { SkinImage } from './SkinImage';
-import { InspectButton } from './InspectButton';
+import { SkinListingLinks } from './SkinListingLinks';
 
 interface InputGridProps {
   inputs: ContractInput[];
-  /** Preview compacto nos cards — sem botão de inspeção. */
+  /** Layout compacto nos cards de contrato. */
   preview?: boolean;
 }
 
@@ -32,17 +32,16 @@ export function InputGrid({ inputs, preview = false }: InputGridProps) {
           <div className="input-grid-info">
             <span className="input-grid-price">{formatCurrency(input.listing.price)}</span>
             <span className="input-grid-meta">{formatFloat(input.listing.float)}</span>
-            {!preview && (
-              <InspectButton
-                compact
-                params={{
-                  skinName: input.item.name,
-                  stattrak: input.item.stattrak,
-                  float: input.listing.float,
-                  wear: input.listing.wear,
-                }}
-              />
-            )}
+            <SkinListingLinks
+              compact={preview}
+              marketplace={input.listing.marketplace}
+              params={{
+                skinName: input.item.name,
+                stattrak: input.item.stattrak,
+                float: input.listing.float,
+                wear: input.listing.wear,
+              }}
+            />
           </div>
         </div>
       ))}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Marketplace, TargetSearchParams, WearTier, SkinItem } from '../models/types';
+import { getCollectionName } from '../data/collections';
 import { wearToMaxFloat } from '../math/wear';
 import { getRarityLabel } from '../utils/rarity';
 import { SkinAutocomplete } from './SkinAutocomplete';
@@ -80,7 +81,7 @@ export function SearchForm({
         , consultando disponibilidade e preços reais do mercado.
       </p>
 
-      <div className="form-grid">
+      <div className="skin-target-section">
         <label className="form-field-skin-target">
           Skin alvo
           <SkinAutocomplete
@@ -99,29 +100,38 @@ export function SearchForm({
           />
         </label>
 
-        {selectedSkin && (
-          <div className="selected-skin-preview">
-            <SkinImage name={selectedSkin.name} rarity={selectedSkin.rarity} size="md" />
-            <div className="selected-skin-info">
-              <span className="selected-skin-name">
-                {selectedSkin.stattrak && 'StatTrak™ '}
-                {selectedSkin.name}
-              </span>
-              <span className="selected-skin-meta">
-                {getRarityLabel(selectedSkin.rarity)}
-              </span>
+        {selectedSkin ? (
+          <div className="selected-skin-preview" aria-live="polite">
+            <span className="selected-skin-label">Skin selecionada</span>
+            <div className="selected-skin-card">
+              <SkinImage name={selectedSkin.name} rarity={selectedSkin.rarity} size="md" />
+              <div className="selected-skin-info">
+                <span className="selected-skin-name">
+                  {selectedSkin.stattrak && <span className="st-badge">ST</span>}
+                  {selectedSkin.name}
+                </span>
+                <span className="selected-skin-meta">
+                  {getCollectionName(selectedSkin.collectionId)} · {getRarityLabel(selectedSkin.rarity)}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn ghost btn-sm"
+                onClick={handleClearSelection}
+                aria-label="Trocar skin selecionada"
+              >
+                Trocar
+              </button>
             </div>
-            <button
-              type="button"
-              className="btn ghost btn-sm"
-              onClick={handleClearSelection}
-              aria-label="Limpar seleção"
-            >
-              Trocar
-            </button>
           </div>
+        ) : (
+          <p className="selected-skin-empty">
+            Clique em uma skin nos resultados da busca para selecioná-la.
+          </p>
         )}
+      </div>
 
+      <div className="form-grid">
         <div className="form-field-stattrak">
           <span className="field-label">Versão</span>
           <div className="stattrak-toggle">

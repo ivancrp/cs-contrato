@@ -13,6 +13,17 @@ import type { CandidateListing, Combination, EvaluationContext } from '../algori
 import { findSkinById, findSkinByName, getCollections } from '../data/collections';
 import { buildContractOutputs, getInputRarityForTarget } from '../math/probability';
 import { calculateFloatMetrics, normalizeFloat } from '../math/float';
+import { validateContractInputs, assertValidContractInputs } from '../math/contractRules';
+import type {
+  ContractInput,
+  MarketListing,
+  SkinItem,
+  TargetSearchParams,
+  TradeUpContract,
+} from '../models/types';
+import { priceService } from '../services/priceService';
+import { marketService } from '../services/marketService';
+import { buildMarketHashName } from '../utils/format';
 import { floatToWear, maxInputFloatForTargetOutput, requiredNormalizedWear, wearToMaxFloat } from '../math/wear';
 import { yieldToMain } from '../utils/yieldToMain';
 import { calculateContract, findCollectionsForTarget, findInputCandidates } from './tradeUpCalculator';

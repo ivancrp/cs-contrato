@@ -1,4 +1,5 @@
 import { generate } from '@vlydev/cs2-masked-inspect-ts';
+import type { Marketplace } from '../models/types';
 import { buildMarketHashName } from '../utils/format';
 import { skinMetadataService } from './skinMetadataService';
 
@@ -54,6 +55,56 @@ export function getCSFloatSearchUrl(params: InspectParams): string {
     ...(params.float !== undefined ? { max_float: String(params.float) } : {}),
   });
   return `https://csfloat.com/search?${q.toString()}`;
+}
+
+function stripWearFromHashName(hashName: string): string {
+  return hashName.replace(/\s*\([^)]+\)$/, '').trim();
+}
+
+/** URL de busca no Skinport. */
+export function getSkinportSearchUrl(params: InspectParams): string {
+  const hashName = buildMarketHashName(params.skinName, params.stattrak ?? false);
+  return `https://skinport.com/market?search=${encodeURIComponent(stripWearFromHashName(hashName))}`;
+}
+
+/** URL de busca no Buff163. */
+export function getBuffSearchUrl(params: InspectParams): string {
+  const hashName = buildMarketHashName(params.skinName, params.stattrak ?? false);
+  return `https://buff.163.com/market/csgo#tab=selling&search=${encodeURIComponent(stripWearFromHashName(hashName))}`;
+}
+
+const MARKETPLACE_LABELS: Record<Marketplace, string> = {
+  steam: 'Steam',
+  csfloat: 'CSFloat',
+  skinport: 'Skinport',
+  buff: 'Buff',
+  pricempire: 'Pricempire',
+  all: 'CSFloat',
+};
+
+export function getMarketplaceLabel(marketplace: Marketplace): string {
+  return MARKETPLACE_LABELS[marketplace] ?? 'Mercado';
+}
+
+/** URL de busca no marketplace onde a skin foi encontrada. */
+export function getMarketplaceSearchUrl(
+  params: InspectParams,
+  marketplace: Marketplace,
+): string {
+  switch (marketplace) {
+    case 'steam':
+      return getSteamMarketUrl(params);
+    case 'csfloat':
+      return getCSFloatSearchUrl(params);
+    case 'skinport':
+      return getSkinportSearchUrl(params);
+    case 'buff':
+      return getBuffSearchUrl(params);
+    case 'all':
+    case 'pricempire':
+    default:
+      return getCSFloatSearchUrl(params);
+  }
 }
 
 /** Copia texto para clipboard. */

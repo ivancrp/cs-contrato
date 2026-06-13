@@ -4,7 +4,7 @@ import { formatCurrency, formatFloat } from '../utils/format';
 import { getCollectionName, getItemRarityLabel } from '../contracts/tradeUpCalculator';
 import { SkinImage } from './SkinImage';
 import { InputGrid } from './InputGrid';
-import { InspectButton } from './InspectButton';
+import { SkinListingLinks } from './SkinListingLinks';
 
 interface InputTableProps {
   inputs: ContractInput[];
@@ -70,8 +70,9 @@ export function InputTable({ inputs }: InputTableProps) {
                 <td>{formatCurrency(input.listing.price)}</td>
                 <td className="market-tag">{input.listing.marketplace}</td>
                 <td>
-                  <InspectButton
+                  <SkinListingLinks
                     compact
+                    marketplace={input.listing.marketplace}
                     params={{
                       skinName: input.item.name,
                       stattrak: input.item.stattrak,
