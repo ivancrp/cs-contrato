@@ -1,4 +1,4 @@
-import type { ContractInput, ContractOutput, OptimizationMode, Rarity, SkinItem } from '../models/types';
+import type { ContractInput, ContractOutput, Marketplace, OptimizationMode, Rarity, SkinItem } from '../models/types';
 
 export interface CandidateListing {
   listingId: string;
@@ -15,6 +15,10 @@ export interface CandidateListing {
   isTargetCollection: boolean;
   /** Listing com preço confirmado no mercado para o float/wear correspondente. */
   marketVerified: boolean;
+  /** Marketplace de origem da listing. */
+  marketplace?: Marketplace;
+  /** URL direta para compra desta listing. */
+  purchaseUrl?: string;
 }
 
 /** Representação compacta: índices no pool de candidatos */

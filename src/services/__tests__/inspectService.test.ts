@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { generate } from '@vlydev/cs2-masked-inspect-ts';
 import {
+  buildCSFloatSearchUrl,
   getBuffSearchUrl,
   getCSFloatSearchUrl,
+  getListingPurchaseUrl,
   getMarketplaceLabel,
   getMarketplaceSearchUrl,
   getSkinportSearchUrl,
@@ -51,5 +53,25 @@ describe('marketplace search urls', () => {
     expect(getMarketplaceLabel('csfloat')).toBe('CSFloat');
     expect(getMarketplaceSearchUrl(params, 'skinport')).toContain('skinport.com');
     expect(getMarketplaceSearchUrl(params, 'all')).toContain('csfloat.com');
+  });
+
+  it('gera URL CSFloat no formato def_index + paint_index + max_float', () => {
+    const url = buildCSFloatSearchUrl({
+      defIndex: 32,
+      paintIndex: 1259,
+      maxFloat: 0.04,
+    });
+    expect(url).toBe(
+      'https://csfloat.com/search?sort_by=lowest_price&max_float=0.04&type=buy_now&def_index=32&paint_index=1259',
+    );
+  });
+
+  it('usa purchaseUrl da listing quando informado', () => {
+    const listingUrl = buildCSFloatSearchUrl({
+      defIndex: 32,
+      paintIndex: 1259,
+      maxFloat: 0.04,
+    });
+    expect(getListingPurchaseUrl(params, 'csfloat', listingUrl)).toBe(listingUrl);
   });
 });

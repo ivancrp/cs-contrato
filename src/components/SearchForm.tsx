@@ -177,7 +177,7 @@ export function SearchForm({
           className="btn primary"
           disabled={loading || !selectedSkin}
         >
-          {loading ? 'Consultando mercado e calculando...' : 'Calcular Contratos'}
+          {loading ? 'Calculando...' : 'Calcular Contratos'}
         </button>
       </div>
     </form>

@@ -74,6 +74,8 @@ export function InputTable({ inputs }: InputTableProps) {
                     compact
                     marketplace={input.listing.marketplace}
                     price={input.listing.price}
+                    purchaseUrl={input.listing.purchaseUrl}
+                    marketVerified={Boolean(input.listing.purchaseUrl)}
                     params={{
                       skinName: input.item.name,
                       stattrak: input.item.stattrak,

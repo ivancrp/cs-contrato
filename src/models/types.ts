@@ -68,6 +68,10 @@ export interface MarketListing {
   wear: WearTier;
   stattrak: boolean;
   souvenir?: boolean;
+  /** URL direta para comprar esta listing exata (float + preço). */
+  purchaseUrl?: string;
+  /** Link steam:// retornado pelo marketplace, quando disponível. */
+  inspectLink?: string;
 }
 
 export interface PriceQuote {

@@ -23,6 +23,8 @@ import type {
 } from '../models/types';
 import { priceService } from '../services/priceService';
 import { marketService } from '../services/marketService';
+import { buildCSFloatSearchUrl } from '../services/inspectService';
+import { skinMetadataService } from '../services/skinMetadataService';
 import { buildMarketHashName } from '../utils/format';
 import { floatToWear, getWearTiersInRange, maxInputFloatForTargetOutput, requiredNormalizedWear, wearToMaxFloat } from '../math/wear';
 import { yieldToMain } from '../utils/yieldToMain';
@@ -129,9 +131,14 @@ async function fetchMarketListingsForItem(
       if (listing.float < item.minFloat || listing.float > maxAllowed) continue;
       if (listing.price <= 0) continue;
 
-      const isLiveListing = listing.marketplace === 'csfloat' && listing.id.startsWith('csfloat-');
-      if (!isLiveListing && !priceService.hasMarketPrice(item.name, item.stattrak, listing.wear)) {
+      const prefersLive = marketplace === 'csfloat' || marketplace === 'all';
+      if (prefersLive && listing.marketplace === 'csfloat' && !listing.purchaseUrl) {
         continue;
+      }
+
+      if (!listing.purchaseUrl) {
+        const hasCatalogPrice = priceService.hasMarketPrice(item.name, item.stattrak, listing.wear);
+        if (!hasCatalogPrice) continue;
       }
 
       if (seenIds.has(listing.id)) continue;
@@ -154,6 +161,7 @@ export async function buildCandidatePool(
   if (!inputRarity) return [];
 
   await priceService.preload();
+  await skinMetadataService.preload();
 
   const maxFloat = params.maxFloat ?? wearToMaxFloat(params.wear);
   const candidates = findInputCandidates(targetSkin, maxFloat);
@@ -181,6 +189,19 @@ export async function buildCandidatePool(
 
       const normalized = normalizeFloat(marketListing.float, item);
 
+      let purchaseUrl = marketListing.purchaseUrl;
+      if (!purchaseUrl && marketListing.marketplace === 'csfloat') {
+        const meta = skinMetadataService.getSync(item.name, item.stattrak);
+        if (meta) {
+          purchaseUrl = buildCSFloatSearchUrl({
+            defIndex: meta.defIndex,
+            paintIndex: meta.paintIndex,
+            maxFloat: marketListing.float,
+            stattrak: item.stattrak,
+          });
+        }
+      }
+
       listings.push({
         listingId: marketListing.id,
         itemId: item.id,
@@ -192,7 +213,9 @@ export async function buildCandidatePool(
         normalizedFloat: normalized,
         floatFitScore: Math.abs(normalized - idealNorm),
         isTargetCollection: targetCollectionIds.has(item.collectionId),
-        marketVerified: true,
+        marketVerified: Boolean(purchaseUrl && marketListing.purchaseUrl),
+        marketplace: marketListing.marketplace,
+        purchaseUrl,
       });
     }
 
@@ -238,12 +261,13 @@ export function combinationToInputs(
       id: candidate.listingId,
       itemId: candidate.itemId,
       marketHashName: buildMarketHashName(item.name, item.stattrak, wear),
-      marketplace: marketplace === 'all' ? 'csfloat' : marketplace,
+      marketplace: candidate.marketplace ?? (marketplace === 'all' ? 'csfloat' : marketplace),
       price: candidate.price,
       currency: 'BRL',
       float: candidate.float,
       wear,
       stattrak: item.stattrak,
+      purchaseUrl: candidate.purchaseUrl,
     };
     return { listing, item };
   });
@@ -373,9 +397,7 @@ export function summarizeMarketAvailability(
   marketplace: TargetSearchParams['marketplace'],
 ) {
   const skinIds = new Set(candidates.map((candidate) => candidate.itemId));
-  const liveListings = candidates.filter(
-    (candidate) => candidate.listingId.startsWith('csfloat-') || candidate.marketVerified,
-  ).length;
+  const liveListings = candidates.filter((candidate) => Boolean(candidate.purchaseUrl)).length;
 
   return {
     marketplace,

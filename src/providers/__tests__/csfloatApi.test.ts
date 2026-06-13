@@ -26,6 +26,8 @@ describe('fetchCSFloatListings', () => {
               price: 1500,
               item: {
                 asset_id: 'asset-1',
+                def_index: 32,
+                paint_index: 1259,
                 float_value: 0.18,
                 market_hash_name: 'AK-47 | Redline (Field-Tested)',
               },
@@ -46,6 +48,9 @@ describe('fetchCSFloatListings', () => {
     expect(listings[0]?.float).toBe(0.18);
     expect(listings[0]?.price).toBeCloseTo(82.5);
     expect(listings[0]?.id).toBe('csfloat-abc123');
+    expect(listings[0]?.purchaseUrl).toBe(
+      'https://csfloat.com/search?sort_by=lowest_price&max_float=0.18&type=buy_now&def_index=32&paint_index=1259',
+    );
   });
 
   it('filtra floats fora do intervalo', async () => {

@@ -8,6 +8,7 @@ import { InspectButton } from './components/InspectButton';
 import { ContractCard } from './components/ContractCard';
 import { ContractComparison } from './components/ContractComparison';
 import { SearchForm } from './components/SearchForm';
+import { LoadingModal } from './components/LoadingModal';
 import { SkinImage } from './components/SkinImage';
 import type { TargetSearchParams } from './models/types';
 import { tradeUpService } from './services/tradeUpService';
@@ -60,6 +61,12 @@ function App() {
       </header>
 
       <main className="main">
+        <LoadingModal
+          open={loading}
+          skinName={searchParams?.skinName}
+          wear={searchParams?.wear}
+        />
+
         <SearchForm
           onSearch={handleSearch}
           loading={loading}

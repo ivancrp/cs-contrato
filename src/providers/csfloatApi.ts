@@ -1,5 +1,6 @@
 import type { MarketListing } from '../models/types';
 import { floatToWear } from '../math/wear';
+import { buildCSFloatSearchUrl } from '../services/inspectService';
 import { buildMarketHashName } from '../utils/format';
 
 /** Proxy local / Vercel — evita CORS e mantém a busca dentro do app. */
@@ -9,8 +10,11 @@ const USD_TO_BRL = 5.5;
 
 interface CSFloatListingItem {
   asset_id: string;
+  def_index?: number;
+  paint_index?: number;
   float_value: number;
   market_hash_name: string;
+  inspect_link?: string;
 }
 
 interface CSFloatListing {
@@ -66,6 +70,18 @@ export async function fetchCSFloatListings(
       if (floatValue < minFloat || floatValue > maxFloat) return null;
 
       const wear = floatToWear(floatValue);
+      const defIndex = listing.item.def_index;
+      const paintIndex = listing.item.paint_index;
+      const purchaseUrl =
+        defIndex != null && paintIndex != null
+          ? buildCSFloatSearchUrl({
+              defIndex,
+              paintIndex,
+              maxFloat: floatValue,
+              stattrak: isStatTrak,
+            })
+          : undefined;
+
       return {
         id: `csfloat-${listing.id}`,
         itemId: listing.item.asset_id,
@@ -76,6 +92,8 @@ export async function fetchCSFloatListings(
         float: floatValue,
         wear,
         stattrak: isStatTrak,
+        purchaseUrl,
+        inspectLink: listing.item.inspect_link,
       };
     })
     .filter((listing): listing is MarketListing => listing !== null);
