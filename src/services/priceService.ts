@@ -122,6 +122,16 @@ class PriceService {
     return this.prices.has(hash);
   }
 
+  getPriceSync(
+    skinName: string,
+    stattrak: boolean,
+    wear: WearTier,
+    marketplace: Marketplace = 'all',
+  ): number {
+    const hash = buildMarketHashName(skinName, stattrak, wear);
+    return this.resolvePrice(hash, marketplace);
+  }
+
   /** Fallback síncrono quando API ainda não carregou */
   getFallbackPrice(rarity: Rarity, float: number, stattrak: boolean): number {
     const stMult = stattrak ? 2.5 : 1;

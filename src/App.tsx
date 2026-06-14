@@ -10,18 +10,38 @@ import { ContractComparison } from './components/ContractComparison';
 import { SearchForm } from './components/SearchForm';
 import { LoadingModal } from './components/LoadingModal';
 import { SkinImage } from './components/SkinImage';
+import { StatTrakDealsPage } from './components/StatTrakDealsPage';
 import type { TargetSearchParams } from './models/types';
 import { tradeUpService } from './services/tradeUpService';
 import type { TradeUpSearchResult } from './services/tradeUpService';
 import './App.css';
 
+type AppPage = 'trade-up' | 'stattrak-deals';
+
+function resolvePageFromHash(): AppPage {
+  return window.location.hash === '#stattrak-deals' ? 'stattrak-deals' : 'trade-up';
+}
+
 function App() {
+  const [page, setPage] = useState<AppPage>(resolvePageFromHash);
+
   useEffect(() => {
     catalogStore.refresh();
     skinImageService.preload();
     skinMetadataService.preload();
     priceService.preload();
   }, []);
+
+  useEffect(() => {
+    const onHashChange = () => setPage(resolvePageFromHash());
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  const navigate = (next: AppPage) => {
+    window.location.hash = next === 'stattrak-deals' ? 'stattrak-deals' : '';
+    setPage(next);
+  };
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TradeUpSearchResult | null>(null);
@@ -57,10 +77,30 @@ function App() {
             CS2 Trade Up Optimizer
           </h1>
           <p>Calcule contratos de troca com custo, chance de lucro e otimização automática</p>
+          <nav className="app-nav">
+            <button
+              type="button"
+              className={`app-nav-link${page === 'trade-up' ? ' active' : ''}`}
+              onClick={() => navigate('trade-up')}
+            >
+              Trade Up
+            </button>
+            <button
+              type="button"
+              className={`app-nav-link${page === 'stattrak-deals' ? ' active' : ''}`}
+              onClick={() => navigate('stattrak-deals')}
+            >
+              StatTrak vs Normal
+            </button>
+          </nav>
         </div>
       </header>
 
       <main className="main">
+        {page === 'stattrak-deals' ? (
+          <StatTrakDealsPage />
+        ) : (
+          <>
         <LoadingModal
           open={loading}
           skinName={searchParams?.skinName}
@@ -141,6 +181,8 @@ function App() {
               ))}
             </div>
           </section>
+        )}
+          </>
         )}
       </main>
 

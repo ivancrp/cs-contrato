@@ -1699,3 +1699,169 @@ input:focus, select:focus {
     font-size: 0.9rem;
   }
 }
+
+/* ---- App navigation ---- */
+.app-nav {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.app-nav-link {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.app-nav-link:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.app-nav-link.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+/* ---- StatTrak deals page ---- */
+.stattrak-deals-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.stattrak-intro h2 {
+  margin-bottom: 0.5rem;
+}
+
+.stattrak-intro p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.stattrak-meta {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.stattrak-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.stattrak-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.stattrak-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stattrak-stat.highlight .stattrak-stat-value {
+  color: var(--success);
+}
+
+.stattrak-stat-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.stattrak-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.stattrak-filter-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.stattrak-filter-row select,
+.stattrak-filter-row input {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  min-width: 180px;
+}
+
+.stattrak-search-field {
+  flex: 1;
+  min-width: 220px;
+}
+
+.stattrak-search-field input {
+  width: 100%;
+}
+
+.stattrak-loading,
+.stattrak-empty {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 2rem;
+}
+
+.stattrak-table th {
+  white-space: nowrap;
+}
+
+.stattrak-skin-name {
+  font-weight: 500;
+  max-width: 260px;
+}
+
+.stattrak-deal-row td {
+  background: #3dd68c11;
+}
+
+.price-cheaper {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.savings-positive {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.savings-negative {
+  color: var(--text-secondary);
+}
+
+.stattrak-buy-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.stattrak-buy-links .btn-inspect {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .stattrak-table .stattrak-skin-name {
+    max-width: 140px;
+    font-size: 0.8rem;
+  }
+}
