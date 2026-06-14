@@ -4,6 +4,7 @@ import { priceService } from './services/priceService';
 import { skinImageService } from './services/skinImageService';
 import { skinMetadataService } from './services/skinMetadataService';
 import { catalogStore } from './data/catalogStore';
+import { skinSearchService } from './services/skinSearchService';
 import { InspectButton } from './components/InspectButton';
 import { ContractCard } from './components/ContractCard';
 import { ContractComparison } from './components/ContractComparison';
@@ -26,7 +27,7 @@ function App() {
   const [page, setPage] = useState<AppPage>(resolvePageFromHash);
 
   useEffect(() => {
-    catalogStore.refresh();
+    catalogStore.refresh().then(() => skinSearchService.warmIndexAsync());
     skinImageService.preload();
     skinMetadataService.preload();
     priceService.preload();

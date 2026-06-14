@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import type { SkinItem } from '../models/types';
 import { skinSearchService, type SkinSearchResult } from '../services/skinSearchService';
 import { SkinImage } from './SkinImage';
 
 const MIN_QUERY_LENGTH = 2;
+const SEARCH_DEBOUNCE_MS = 120;
 
 interface SkinAutocompleteProps {
   value: string;
@@ -25,8 +26,15 @@ export function SkinAutocomplete({
   const [open, setOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<SkinSearchResult[]>([]);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  const [, startTransition] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedValue(value), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [value]);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
@@ -39,17 +47,28 @@ export function SkinAutocomplete({
   }, []);
 
   useEffect(() => {
-    const trimmed = value.trim();
+    const trimmed = debouncedValue.trim();
     if (!open || trimmed.length < MIN_QUERY_LENGTH) {
       setSuggestions([]);
       setActiveIndex(-1);
       return;
     }
 
-    const results = skinSearchService.searchSync(trimmed, stattrak);
-    setSuggestions(results);
-    setActiveIndex(results.length > 0 ? 0 : -1);
-  }, [value, stattrak, open]);
+    let cancelled = false;
+
+    skinSearchService.warmIndexAsync().then(() => {
+      if (cancelled) return;
+      const results = skinSearchService.searchSync(trimmed, stattrak);
+      startTransition(() => {
+        setSuggestions(results);
+        setActiveIndex(results.length > 0 ? 0 : -1);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedValue, stattrak, open]);
 
   const selectSkin = (skin: SkinSearchResult) => {
     onSelect(skin);
