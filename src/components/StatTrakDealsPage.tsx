@@ -11,7 +11,8 @@ import {
 } from '../services/stattrakComparisonService';
 import { getCSFloatSearchUrl, getSteamMarketUrl } from '../services/inspectService';
 import { formatCurrency, formatPercent } from '../utils/format';
-import type { WearTier } from '../models/types';
+import { getRarityLabel, RARITY_ORDER } from '../utils/rarity';
+import type { Rarity, WearTier } from '../models/types';
 
 type ViewMode = 'deals' | 'all';
 type SortKey = 'savingsPercent' | 'savings' | 'normalPrice' | 'stattrakPrice' | 'skinName';
@@ -20,7 +21,8 @@ export function StatTrakDealsPage() {
   const [loading, setLoading] = useState(true);
   const [comparisons, setComparisons] = useState<StatTrakComparison[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('deals');
-  const [wearFilter, setWearFilter] = useState<WearTier | 'all'>('all');
+  const [wearFilter, setWearFilter] = useState<WearTier | 'all'>('Factory New');
+  const [rarityFilter, setRarityFilter] = useState<Rarity | 'all'>('covert');
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('savingsPercent');
   const [sortAsc, setSortAsc] = useState(false);
@@ -55,10 +57,11 @@ export function StatTrakDealsPage() {
 
     return base.filter((row) => {
       if (wearFilter !== 'all' && row.wear !== wearFilter) return false;
+      if (rarityFilter !== 'all' && row.rarity !== rarityFilter) return false;
       if (query && !row.skinName.toLowerCase().includes(query)) return false;
       return true;
     });
-  }, [comparisons, deals, viewMode, wearFilter, search]);
+  }, [comparisons, deals, viewMode, wearFilter, rarityFilter, search]);
 
   const sortedRows = useMemo(() => {
     const rows = [...filteredRows];
@@ -159,6 +162,21 @@ export function StatTrakDealsPage() {
               {WEAR_TIERS.map((wear) => (
                 <option key={wear} value={wear}>
                   {wearLabel(wear)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Raridade
+            <select
+              value={rarityFilter}
+              onChange={(e) => setRarityFilter(e.target.value as Rarity | 'all')}
+            >
+              <option value="all">Todas</option>
+              {RARITY_ORDER.map((rarity) => (
+                <option key={rarity} value={rarity}>
+                  {getRarityLabel(rarity)}
                 </option>
               ))}
             </select>

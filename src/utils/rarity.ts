@@ -1,6 +1,6 @@
 import type { Rarity } from '../models/types';
 
-const RARITY_ORDER: Rarity[] = [
+export const RARITY_ORDER: Rarity[] = [
   'consumer',
   'industrial',
   'mil-spec',
