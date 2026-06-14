@@ -1,23 +1,41 @@
 import { useState } from 'react';
-import type { MinLossAnalysis, SimulationResult, TradeUpContract } from '../models/types';
+import type { CandidateListing } from '../algorithms/types';
+import type { MinLossAnalysis, SimulationResult, SkinItem, TargetSearchParams, TradeUpContract } from '../models/types';
 import { formatCurrency, formatFloat, formatPercent } from '../utils/format';
 import { getItemRarityLabel } from '../contracts/tradeUpCalculator';
 import { InputTable } from './InputTable';
 import { OutputTable } from './OutputTable';
 import { ScoreStars } from './ScoreStars';
 import { SimulationPanel } from './SimulationPanel';
+import { ContractResimulator } from './ContractResimulator';
 import { InputGrid } from './InputGrid';
 
 interface ContractCardProps {
   contract: TradeUpContract;
   onSimulate: (contract: TradeUpContract, iterations?: number) => SimulationResult;
   minLossAnalysis?: MinLossAnalysis;
+  candidates?: CandidateListing[];
+  targetSkin?: SkinItem;
+  searchParams?: TargetSearchParams;
+  onRecalculate?: (
+    inputs: import('../models/types').ContractInput[],
+    base: Pick<TradeUpContract, 'tier' | 'tierLabel' | 'algorithmUsed' | 'aiScore'>,
+  ) => Promise<TradeUpContract>;
 }
 
-export function ContractCard({ contract, onSimulate, minLossAnalysis }: ContractCardProps) {
+export function ContractCard({
+  contract,
+  onSimulate,
+  minLossAnalysis,
+  candidates,
+  targetSkin,
+  searchParams,
+  onRecalculate,
+}: ContractCardProps) {
   const [expanded, setExpanded] = useState(false);
   const { evMetrics, floatMetrics } = contract;
   const otherSkinsChance = Math.max(0, 1 - evMetrics.targetChance);
+  const unavailableOutputs = contract.outputs.filter((output) => output.floatAvailable === false).length;
 
   return (
     <div className={`contract-card card tier-${contract.tier}${expanded ? ' is-expanded' : ''}`}>
@@ -111,6 +129,11 @@ export function ContractCard({ contract, onSimulate, minLossAnalysis }: Contract
 
       <p className="collections-used">
         Coleções: {contract.collectionsUsed.join(', ')}
+        {unavailableOutputs > 0 && (
+          <span className="market-warning">
+            {' '}· {unavailableOutputs} saída(s) sem float disponível no mercado
+          </span>
+        )}
       </p>
 
       {minLossAnalysis && contract.tier === 'min_loss' && (
@@ -144,7 +167,18 @@ export function ContractCard({ contract, onSimulate, minLossAnalysis }: Contract
           <InputTable inputs={contract.inputs} />
           <h4>Saídas Possíveis</h4>
           <OutputTable outputs={contract.outputs} />
-          <SimulationPanel contract={contract} onSimulate={onSimulate} />
+          {candidates && targetSkin && searchParams && onRecalculate ? (
+            <ContractResimulator
+              contract={contract}
+              candidates={candidates}
+              targetSkin={targetSkin}
+              searchParams={searchParams}
+              onRecalculate={onRecalculate}
+              onSimulate={onSimulate}
+            />
+          ) : (
+            <SimulationPanel contract={contract} onSimulate={onSimulate} />
+          )}
         </div>
       )}
     </div>

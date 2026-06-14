@@ -36,9 +36,21 @@ export function SimulationPanel({ contract, onSimulate }: SimulationPanelProps) 
     ? (result.breakEvenCount / result.iterations) * 100
     : 0;
 
+  const unavailableOutputs = contract.outputs.filter((output) => output.floatAvailable === false);
+
   return (
     <div className="simulation-panel card">
       <h3>Simulação Monte Carlo</h3>
+      <p className="simulation-note">
+        Usa preços de venda verificados no mercado quando disponíveis.
+        {unavailableOutputs.length > 0 && (
+          <>
+            {' '}
+            {unavailableOutputs.length} saída(s) sem listing no float esperado — preço ajustado
+            conservadoramente.
+          </>
+        )}
+      </p>
       <div className="simulation-controls">
         <label>
           Iterações

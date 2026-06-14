@@ -10,13 +10,20 @@ import { refreshCatalog } from '../data/collections';
 import { analyzeMinLossScenario } from '../math/ev';
 import { db } from '../models/database';
 import type {
+  ContractInput,
   MinLossAnalysis,
   SimulationResult,
+  SkinItem,
   TargetSearchParams,
   TradeUpContract,
 } from '../models/types';
 import { simulateContracts } from '../simulations/monteCarlo';
 import { generateAIRecommendation, type AIRecommendation } from './aiAdvisor';
+import type { CandidateListing } from '../algorithms/types';
+import {
+  enrichContractsWithMarketPrices,
+  recalculateContractFromInputs,
+} from './contractRecalcService';
 
 export interface MarketAvailabilitySummary {
   marketplace: TargetSearchParams['marketplace'];
@@ -33,6 +40,8 @@ export interface TradeUpSearchResult {
   minLossContract?: TradeUpContract;
   minLossAnalysis?: MinLossAnalysis;
   marketAvailability: MarketAvailabilitySummary;
+  candidates: CandidateListing[];
+  searchParams: TargetSearchParams;
 }
 
 function contractSignature(contract: TradeUpContract): string {
@@ -70,17 +79,10 @@ export class TradeUpService {
     const tierContracts = await buildThreeContracts(params, prepared);
 
     let minLossContract: TradeUpContract | undefined;
-    let minLossAnalysis: MinLossAnalysis | undefined;
     try {
       minLossContract = await buildMinLossContract(params, prepared);
-      minLossAnalysis = analyzeMinLossScenario(
-        minLossContract.outputs,
-        minLossContract.evMetrics.totalCost,
-        targetSkin.id,
-      );
     } catch {
       minLossContract = undefined;
-      minLossAnalysis = undefined;
     }
 
     const contracts = mergeUniqueContracts([
@@ -92,25 +94,41 @@ export class TradeUpService {
       throw new Error('Não foi possível gerar contratos válidos para esta skin alvo');
     }
 
-    db.saveContractHistory(params, contracts);
+    const realisticContracts = await enrichContractsWithMarketPrices(
+      contracts,
+      params.marketplace,
+    );
+
+    const enrichedMinLoss = realisticContracts.find((c) => c.tier === 'min_loss');
+    const minLossAnalysis = enrichedMinLoss
+      ? analyzeMinLossScenario(
+          enrichedMinLoss.outputs,
+          enrichedMinLoss.evMetrics.totalCost,
+          targetSkin.id,
+        )
+      : undefined;
+
+    db.saveContractHistory(params, realisticContracts);
 
     const collections = [...new Set(
       contracts.flatMap((contract) => contract.collectionsUsed),
     )];
 
-    const aiRecommendation = generateAIRecommendation(contracts);
+    const aiRecommendation = generateAIRecommendation(realisticContracts);
 
     return {
       targetSkin,
       collections,
-      contracts,
+      contracts: realisticContracts,
       aiRecommendation,
-      minLossContract,
+      minLossContract: enrichedMinLoss,
       minLossAnalysis,
       marketAvailability: summarizeMarketAvailability(
         prepared.candidates,
         params.marketplace,
       ),
+      candidates: prepared.candidates,
+      searchParams: params,
     };
   }
 
@@ -120,11 +138,22 @@ export class TradeUpService {
     return findBestContract(params);
   }
 
-  /** Simula 100.000 contratos */
+  /** Simula N contratos com preços de saída do contrato informado */
   simulate(contract: TradeUpContract, iterations = 100_000): SimulationResult {
     const result = simulateContracts(contract, iterations);
     db.saveSimulation(contract.id, result);
     return result;
+  }
+
+  /** Recalcula contrato com entradas personalizadas e preços reais de mercado */
+  async recalculateFromInputs(
+    inputs: ContractInput[],
+    targetSkin: SkinItem,
+    params: TargetSearchParams,
+    base?: Pick<TradeUpContract, 'tier' | 'tierLabel' | 'algorithmUsed' | 'aiScore'>,
+  ): Promise<TradeUpContract> {
+    await refreshCatalog();
+    return recalculateContractFromInputs(inputs, targetSkin, params, base);
   }
 }
 

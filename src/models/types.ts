@@ -99,6 +99,15 @@ export interface ContractOutput {
   expectedWear: WearTier;
   price: number;
   isTarget: boolean;
+  /** Preço teórico interpolado por float (antes do ajuste de mercado). */
+  theoreticalPrice?: number;
+  /** Listing real encontrada no mercado para o float/wear. */
+  marketVerified?: boolean;
+  /** Float esperado tem listing comparável à venda no mercado. */
+  floatAvailable?: boolean;
+  priceSource?: 'listing_exact' | 'listing_comparable' | 'wear_tier' | 'catalog' | 'fallback';
+  comparableFloat?: number;
+  marketListingsCount?: number;
 }
 
 /** Métricas de EV e risco */

@@ -128,7 +128,7 @@ function App() {
                     ({result.marketAvailability.liveListings} com float real via API)
                   </>
                 )}
-                . Nenhum redirecionamento — os contratos usam apenas skins verificadas.
+                . Preços de saída ajustados com listings reais quando disponíveis.
               </p>
             </div>
 
@@ -178,6 +178,17 @@ function App() {
                   contract={contract}
                   onSimulate={(c, iterations) => tradeUpService.simulate(c, iterations)}
                   minLossAnalysis={contract.tier === 'min_loss' ? result.minLossAnalysis : undefined}
+                  candidates={result.candidates}
+                  targetSkin={result.targetSkin}
+                  searchParams={result.searchParams}
+                  onRecalculate={(inputs, base) =>
+                    tradeUpService.recalculateFromInputs(
+                      inputs,
+                      result.targetSkin,
+                      result.searchParams,
+                      base,
+                    )
+                  }
                 />
               ))}
             </div>

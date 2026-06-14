@@ -8,6 +8,21 @@ interface OutputTableProps {
   outputs: ContractOutput[];
 }
 
+function priceSourceLabel(output: ContractOutput): string {
+  if (output.floatAvailable) {
+    return output.priceSource === 'listing_exact'
+      ? 'Listing no float esperado'
+      : 'Listing comparável no mercado';
+  }
+  if (output.priceSource === 'wear_tier') {
+    return 'Float indisponível — preço do wear com desconto';
+  }
+  if (output.priceSource === 'catalog') {
+    return 'Sem listings — estimativa conservadora';
+  }
+  return 'Preço estimado (float raro no mercado)';
+}
+
 export function OutputTable({ outputs }: OutputTableProps) {
   return (
     <>
@@ -33,6 +48,15 @@ export function OutputTable({ outputs }: OutputTableProps) {
                 <span>Float {formatFloat(output.expectedFloat)}</span>
                 <span>{output.expectedWear}</span>
               </div>
+              <span
+                className={`market-verified-badge${output.floatAvailable ? '' : ' estimated'}`}
+                title={priceSourceLabel(output)}
+              >
+                {output.floatAvailable ? '✓ float no mercado' : '~ float indisponível'}
+                {output.theoreticalPrice != null && output.theoreticalPrice !== output.price && (
+                  <> · teórico {formatCurrency(output.theoreticalPrice)}</>
+                )}
+              </span>
               <InspectButton
                 compact
                 params={{
@@ -74,7 +98,14 @@ export function OutputTable({ outputs }: OutputTableProps) {
                 <td>{getCollectionName(output.item.collectionId)}</td>
                 <td>{formatFloat(output.expectedFloat)}</td>
                 <td>{output.expectedWear}</td>
-                <td>{formatCurrency(output.price)}</td>
+                <td>
+                  {formatCurrency(output.price)}
+                  {output.theoreticalPrice != null && output.theoreticalPrice !== output.price && (
+                    <span className="theoretical-price" title="Preço teórico interpolado">
+                      {' '}(~{formatCurrency(output.theoreticalPrice)})
+                    </span>
+                  )}
+                </td>
                 <td>{formatPercent(output.probability * 100)}</td>
                 <td>{formatCurrency(output.probability * output.price)}</td>
                 <td>
@@ -87,6 +118,12 @@ export function OutputTable({ outputs }: OutputTableProps) {
                       wear: output.expectedWear,
                     }}
                   />
+                  <span
+                    className={`market-verified-badge compact${output.floatAvailable ? '' : ' estimated'}`}
+                    title={priceSourceLabel(output)}
+                  >
+                    {output.floatAvailable ? '✓ mercado' : '~ indisponível'}
+                  </span>
                 </td>
               </tr>
             ))}

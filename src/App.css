@@ -1285,6 +1285,95 @@ input:focus, select:focus {
   color: var(--text-secondary);
 }
 
+.simulation-note {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin: 0.35rem 0 0.75rem;
+}
+
+.contract-resimulator {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.contract-resimulator h4 {
+  margin: 0 0 0.35rem;
+}
+
+.resimulator-hint {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.resimulator-slots {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.resimulator-slot {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 2fr minmax(100px, 0.8fr);
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+.resimulator-slot select {
+  width: 100%;
+}
+
+.slot-label,
+.slot-collection {
+  color: var(--text-secondary);
+}
+
+.resimulator-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.resimulator-error {
+  color: var(--danger);
+  font-size: 0.82rem;
+  margin-top: 0.5rem;
+}
+
+.resimulator-summary {
+  margin-top: 0.75rem;
+}
+
+.card.nested {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  padding: 0.75rem;
+  border-radius: 8px;
+}
+
+.market-warning {
+  color: var(--warning);
+}
+
+.theoretical-price {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.market-verified-badge.compact {
+  flex-basis: auto;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 768px) {
+  .resimulator-slot {
+    grid-template-columns: 1fr;
+  }
+}
+
 .histogram {
   margin-top: 0.5rem;
 }
