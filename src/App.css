@@ -1754,8 +1754,70 @@ input:focus, select:focus {
 
 .stattrak-stats {
   display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.stattrak-stats-row {
+  display: flex;
   flex-wrap: wrap;
   gap: 1.5rem;
+}
+
+.stattrak-featured-deal {
+  border-top: 1px solid var(--border);
+  padding-top: 1.25rem;
+}
+
+.stattrak-featured-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.stattrak-featured-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  background: #3dd68c11;
+  border: 1px solid #3dd68c33;
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.stattrak-featured-info {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.stattrak-featured-name {
+  font-size: 1.05rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.stattrak-featured-meta {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.stattrak-featured-prices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+.stattrak-featured-prices strong {
+  color: var(--text-primary);
 }
 
 .stattrak-stat {
@@ -1830,6 +1892,23 @@ input:focus, select:focus {
   max-width: 260px;
 }
 
+.stattrak-skin-name span {
+  display: block;
+}
+
+.stattrak-skin-meta {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+  margin-top: 0.15rem;
+}
+
+.stattrak-collection {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  max-width: 180px;
+}
+
 .stattrak-deal-row td {
   background: #3dd68c11;
 }
@@ -1852,6 +1931,7 @@ input:focus, select:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+  align-items: center;
 }
 
 .stattrak-buy-links .btn-inspect {

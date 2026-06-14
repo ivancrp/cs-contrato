@@ -12,7 +12,9 @@ import {
 import { getCSFloatSearchUrl, getSteamMarketUrl } from '../services/inspectService';
 import { formatCurrency, formatPercent } from '../utils/format';
 import { getRarityLabel, RARITY_ORDER } from '../utils/rarity';
+import { wearToMaxFloat } from '../math/wear';
 import type { Rarity, WearTier } from '../models/types';
+import { InspectButton } from './InspectButton';
 
 type ViewMode = 'deals' | 'all';
 type SortKey = 'savingsPercent' | 'savings' | 'normalPrice' | 'stattrakPrice' | 'skinName';
@@ -49,19 +51,28 @@ export function StatTrakDealsPage() {
     };
   }, []);
 
-  const deals = useMemo(() => getStatTrakDeals(comparisons), [comparisons]);
 
-  const filteredRows = useMemo(() => {
-    const base = viewMode === 'deals' ? deals : comparisons;
+  const filteredComparisons = useMemo(() => {
     const query = search.trim().toLowerCase();
-
-    return base.filter((row) => {
+    return comparisons.filter((row) => {
       if (wearFilter !== 'all' && row.wear !== wearFilter) return false;
       if (rarityFilter !== 'all' && row.rarity !== rarityFilter) return false;
       if (query && !row.skinName.toLowerCase().includes(query)) return false;
       return true;
     });
-  }, [comparisons, deals, viewMode, wearFilter, rarityFilter, search]);
+  }, [comparisons, wearFilter, rarityFilter, search]);
+
+  const filteredDeals = useMemo(
+    () => getStatTrakDeals(filteredComparisons),
+    [filteredComparisons],
+  );
+
+  const topDeal = filteredDeals[0] ?? null;
+
+  const filteredRows = useMemo(() => {
+    const base = viewMode === 'deals' ? filteredDeals : filteredComparisons;
+    return base;
+  }, [filteredComparisons, filteredDeals, viewMode]);
 
   const sortedRows = useMemo(() => {
     const rows = [...filteredRows];
@@ -123,20 +134,26 @@ export function StatTrakDealsPage() {
       </section>
 
       <section className="card stattrak-stats">
-        <div className="stattrak-stat">
-          <span className="stattrak-stat-value">{comparisons.length}</span>
-          <span className="stattrak-stat-label">Comparações com preço</span>
+        <div className="stattrak-stats-row">
+          <div className="stattrak-stat">
+            <span className="stattrak-stat-value">{filteredComparisons.length}</span>
+            <span className="stattrak-stat-label">Comparações com preço</span>
+          </div>
+          <div className="stattrak-stat highlight">
+            <span className="stattrak-stat-value">{filteredDeals.length}</span>
+            <span className="stattrak-stat-label">StatTrak mais baratas</span>
+          </div>
+          <div className="stattrak-stat">
+            <span className="stattrak-stat-value">
+              {topDeal ? formatPercent(topDeal.savingsPercent, 1) : '—'}
+            </span>
+            <span className="stattrak-stat-label">Maior economia (%)</span>
+          </div>
         </div>
-        <div className="stattrak-stat highlight">
-          <span className="stattrak-stat-value">{deals.length}</span>
-          <span className="stattrak-stat-label">StatTrak mais baratas</span>
-        </div>
-        <div className="stattrak-stat">
-          <span className="stattrak-stat-value">
-            {deals.length > 0 ? formatPercent(deals[0].savingsPercent, 1) : '—'}
-          </span>
-          <span className="stattrak-stat-label">Maior economia (%)</span>
-        </div>
+
+        {topDeal && !loading && (
+          <StatTrakFeaturedDeal deal={topDeal} />
+        )}
       </section>
 
       <section className="card stattrak-filters">
@@ -209,6 +226,7 @@ export function StatTrakDealsPage() {
                 <th onClick={() => handleSort('skinName')}>
                   Nome{sortIndicator('skinName')}
                 </th>
+                <th>Coleção</th>
                 <th>Desgaste</th>
                 <th onClick={() => handleSort('normalPrice')}>
                   Normal{sortIndicator('normalPrice')}
@@ -222,7 +240,7 @@ export function StatTrakDealsPage() {
                 <th onClick={() => handleSort('savingsPercent')}>
                   Economia %{sortIndicator('savingsPercent')}
                 </th>
-                <th>Comprar StatTrak</th>
+                <th>Comprar / Inspecionar</th>
               </tr>
             </thead>
             <tbody>
@@ -238,16 +256,16 @@ export function StatTrakDealsPage() {
 }
 
 function StatTrakRow({ row }: { row: StatTrakComparison }) {
-  const inspectParams = { skinName: row.skinName, stattrak: true, wear: row.wear };
-  const steamUrl = getSteamMarketUrl(inspectParams);
-  const csfloatUrl = getCSFloatSearchUrl(inspectParams);
-
   return (
     <tr className={row.stattrakCheaper ? 'stattrak-deal-row' : ''}>
       <td>
         <SkinImage name={row.skinName} rarity={row.rarity} size="sm" />
       </td>
-      <td className="stattrak-skin-name">{row.skinName}</td>
+      <td className="stattrak-skin-name">
+        <span>{row.skinName}</span>
+        <span className="stattrak-skin-meta">{getRarityLabel(row.rarity)}</span>
+      </td>
+      <td className="stattrak-collection">{row.collectionName}</td>
       <td>{wearLabel(row.wear)}</td>
       <td>{formatCurrency(row.normalPrice)}</td>
       <td className={row.stattrakCheaper ? 'price-cheaper' : ''}>
@@ -262,26 +280,74 @@ function StatTrakRow({ row }: { row: StatTrakComparison }) {
         {formatPercent(Math.abs(row.savingsPercent), 1)}
       </td>
       <td>
-        <div className="stattrak-buy-links">
-          <a
-            href={steamUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-inspect link buy"
-          >
-            Steam
-          </a>
-          <a
-            href={csfloatUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-inspect link buy"
-          >
-            CSFloat
-          </a>
-        </div>
+        <StatTrakDealActions row={row} />
       </td>
     </tr>
+  );
+}
+
+function StatTrakFeaturedDeal({ deal }: { deal: StatTrakComparison }) {
+  return (
+    <div className="stattrak-featured-deal">
+      <span className="stattrak-featured-label">Melhor oportunidade nos filtros atuais</span>
+      <div className="stattrak-featured-card">
+        <SkinImage name={deal.skinName} rarity={deal.rarity} size="md" />
+        <div className="stattrak-featured-info">
+          <span className="stattrak-featured-name">
+            <span className="st-badge">ST</span>
+            {deal.skinName}
+          </span>
+          <span className="stattrak-featured-meta">
+            {deal.collectionName} · {getRarityLabel(deal.rarity)} · {wearLabel(deal.wear)}
+          </span>
+          <div className="stattrak-featured-prices">
+            <span>
+              Normal: <strong>{formatCurrency(deal.normalPrice)}</strong>
+            </span>
+            <span>
+              StatTrak: <strong className="price-cheaper">{formatCurrency(deal.stattrakPrice)}</strong>
+            </span>
+            <span className="savings-positive">
+              Economia: {formatCurrency(deal.savings)} ({formatPercent(deal.savingsPercent, 1)})
+            </span>
+          </div>
+        </div>
+        <StatTrakDealActions row={deal} />
+      </div>
+    </div>
+  );
+}
+
+function StatTrakDealActions({ row }: { row: StatTrakComparison }) {
+  const inspectParams = {
+    skinName: row.skinName,
+    stattrak: true,
+    wear: row.wear,
+    float: wearToMaxFloat(row.wear),
+  };
+  const steamUrl = getSteamMarketUrl(inspectParams);
+  const csfloatUrl = getCSFloatSearchUrl(inspectParams);
+
+  return (
+    <div className="stattrak-buy-links">
+      <InspectButton params={inspectParams} compact />
+      <a
+        href={steamUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="btn-inspect link buy"
+      >
+        Steam
+      </a>
+      <a
+        href={csfloatUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="btn-inspect link buy"
+      >
+        CSFloat
+      </a>
+    </div>
   );
 }
 

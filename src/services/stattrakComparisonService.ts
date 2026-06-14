@@ -1,4 +1,4 @@
-import { getAllSkins } from '../data/collections';
+import { getAllSkins, getCollectionName } from '../data/collections';
 import type { Rarity, WearTier } from '../models/types';
 import { priceService } from './priceService';
 
@@ -12,6 +12,8 @@ const WEAR_TIERS: WearTier[] = [
 
 export interface StatTrakComparison {
   skinName: string;
+  collectionId: string;
+  collectionName: string;
   wear: WearTier;
   rarity: Rarity;
   normalPrice: number;
@@ -43,6 +45,8 @@ export function buildStatTrakComparisons(): StatTrakComparison[] {
 
       comparisons.push({
         skinName: skin.name,
+        collectionId: skin.collectionId,
+        collectionName: getCollectionName(skin.collectionId),
         wear,
         rarity: skin.rarity,
         normalPrice,
