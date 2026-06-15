@@ -22,7 +22,10 @@ interface ContractResimulatorProps {
     inputs: ContractInput[],
     base: Pick<TradeUpContract, 'tier' | 'tierLabel' | 'algorithmUsed' | 'aiScore'>,
   ) => Promise<TradeUpContract>;
-  onSimulate: (contract: TradeUpContract, iterations?: number) => SimulationResult;
+  onSimulate: (
+    contract: TradeUpContract,
+    iterations?: number,
+  ) => SimulationResult | Promise<SimulationResult>;
 }
 
 function candidateLabel(candidate: CandidateListing, itemName: string): string {

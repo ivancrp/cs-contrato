@@ -1,0 +1,36 @@
+{
+  "name": "@ct/workers",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./job-queue": {
+      "types": "./dist/job-queue.d.ts",
+      "import": "./dist/job-queue.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "test": "echo \"No tests yet\"",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@ct/common": "*",
+    "@ct/optimizer": "*",
+    "@ct/simulator": "*",
+    "@ct/types": "*",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6",
+    "typescript": "~5.6.2"
+  }
+}

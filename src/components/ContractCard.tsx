@@ -12,7 +12,10 @@ import { InputGrid } from './InputGrid';
 
 interface ContractCardProps {
   contract: TradeUpContract;
-  onSimulate: (contract: TradeUpContract, iterations?: number) => SimulationResult;
+  onSimulate: (
+    contract: TradeUpContract,
+    iterations?: number,
+  ) => SimulationResult | Promise<SimulationResult>;
   minLossAnalysis?: MinLossAnalysis;
   candidates?: CandidateListing[];
   targetSkin?: SkinItem;

@@ -18,6 +18,7 @@ import type {
   TradeUpContract,
 } from '../models/types';
 import { simulateContracts } from '../simulations/monteCarlo';
+import { simulateViaApi } from './api/apiClient';
 import { generateAIRecommendation, type AIRecommendation } from './aiAdvisor';
 import type { CandidateListing } from '../algorithms/types';
 import {
@@ -138,9 +139,10 @@ export class TradeUpService {
     return findBestContract(params);
   }
 
-  /** Simula N contratos com preços de saída do contrato informado */
-  simulate(contract: TradeUpContract, iterations = 100_000): SimulationResult {
-    const result = simulateContracts(contract, iterations);
+  /** Simula N contratos — usa API quando disponível, senão local */
+  async simulate(contract: TradeUpContract, iterations = 100_000): Promise<SimulationResult> {
+    const fromApi = await simulateViaApi(contract, iterations);
+    const result = fromApi ?? simulateContracts(contract, iterations);
     db.saveSimulation(contract.id, result);
     return result;
   }

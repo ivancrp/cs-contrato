@@ -57,6 +57,34 @@ body {
   margin-top: 0.25rem;
 }
 
+.api-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  border: 1px solid var(--border);
+}
+
+.api-status--online {
+  background: rgba(61, 214, 140, 0.08);
+  color: var(--success);
+}
+
+.api-status--offline {
+  background: rgba(244, 113, 113, 0.08);
+  color: var(--danger);
+}
+
+.api-status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
 .main {
   flex: 1;
   max-width: 1400px;

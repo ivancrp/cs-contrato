@@ -1,6 +1,7 @@
 import staticCatalog from './catalog.json';
 import { buildCatalogFromApiSkins, SKINS_API_URL, type ApiSkin } from './buildCatalog';
 import { refreshTradeUpCollectionEligibility } from './tradeUpCollections';
+import { fetchCatalogFromApi } from '../services/api/apiClient';
 import type { Collection } from '../models/types';
 
 class CatalogStore {
@@ -20,6 +21,12 @@ class CatalogStore {
 
   private async fetchLatestCatalog(): Promise<void> {
     await refreshTradeUpCollectionEligibility();
+
+    const apiCatalog = await fetchCatalogFromApi();
+    if (apiCatalog?.length) {
+      this.collections = apiCatalog;
+      return;
+    }
 
     try {
       const response = await fetch(SKINS_API_URL);

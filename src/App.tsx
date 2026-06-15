@@ -11,6 +11,7 @@ import { ContractComparison } from './components/ContractComparison';
 import { SearchForm } from './components/SearchForm';
 import { LoadingModal } from './components/LoadingModal';
 import { SkinImage } from './components/SkinImage';
+import { ApiStatusBanner } from './components/ApiStatusBanner';
 import { StatTrakDealsPage } from './components/StatTrakDealsPage';
 import type { TargetSearchParams } from './models/types';
 import { tradeUpService } from './services/tradeUpService';
@@ -94,6 +95,7 @@ function App() {
               StatTrak vs Normal
             </button>
           </nav>
+          <ApiStatusBanner />
         </div>
       </header>
 

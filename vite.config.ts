@@ -61,6 +61,11 @@ export default defineConfig({
   plugins: [react(), steamImageProxy()],
   server: {
     proxy: {
+      '/api/backend': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/backend/, ''),
+      },
       '/api/csfloat': {
         target: 'https://csfloat.com',
         changeOrigin: true,
@@ -70,6 +75,11 @@ export default defineConfig({
   },
   preview: {
     proxy: {
+      '/api/backend': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/backend/, ''),
+      },
       '/api/csfloat': {
         target: 'https://csfloat.com',
         changeOrigin: true,

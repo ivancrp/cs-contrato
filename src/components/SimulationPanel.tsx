@@ -5,7 +5,10 @@ import { Histogram } from './Histogram';
 
 interface SimulationPanelProps {
   contract: TradeUpContract;
-  onSimulate: (contract: TradeUpContract, iterations?: number) => SimulationResult;
+  onSimulate: (
+    contract: TradeUpContract,
+    iterations?: number,
+  ) => SimulationResult | Promise<SimulationResult>;
 }
 
 const ITERATION_OPTIONS = [
@@ -19,13 +22,14 @@ export function SimulationPanel({ contract, onSimulate }: SimulationPanelProps) 
   const [running, setRunning] = useState(false);
   const [iterations, setIterations] = useState<number>(100_000);
 
-  const handleSimulate = () => {
+  const handleSimulate = async () => {
     setRunning(true);
-    setTimeout(() => {
-      const sim = onSimulate(contract, iterations);
+    try {
+      const sim = await onSimulate(contract, iterations);
       setResult(sim);
+    } finally {
       setRunning(false);
-    }, 100);
+    }
   };
 
   const targetRate = result
