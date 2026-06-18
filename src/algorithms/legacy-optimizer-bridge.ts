@@ -2,7 +2,7 @@ import { defaultRuleRegistry } from '@ct/contracts';
 import { buildTradeUpContract } from '@ct/engine';
 import { optimizeAllTiers, type TierOptimizationResult } from '@ct/optimizer';
 import type { CandidateListing as PackageCandidate } from '@ct/optimizer';
-import type { Collection, ContractInput, SkinItem } from '@ct/types';
+import type { Collection, ContractInput as PackageContractInput, SkinItem } from '@ct/types';
 import type { CandidateListing, Combination, EvaluationContext, OptimizationResult } from './types.js';
 import { floatToWear } from '../math/wear';
 import { buildMarketHashName } from '../utils/format';
@@ -32,7 +32,7 @@ function toPackageCandidates(candidates: CandidateListing[], itemsById: Map<stri
   });
 }
 
-function inputsToCombination(inputs: ContractInput[], candidates: CandidateListing[]): Combination {
+function inputsToCombination(inputs: PackageContractInput[], candidates: CandidateListing[]): Combination {
   return inputs.map((input) => {
     const idx = candidates.findIndex(
       (c) => c.itemId === input.item.id && Math.abs(c.float - input.listing.float) < 0.0001,
@@ -96,7 +96,7 @@ export function optimizeAllTiersViaPackage(
       result: {
         combination,
         candidatePool: [...baseCtx.candidates],
-        inputs: tier.inputs,
+        inputs: evaluated.inputs,
         outputs: evaluated.outputs,
         totalCost: evaluated.totalCost,
         expectedFloat: evaluated.expectedFloat,
