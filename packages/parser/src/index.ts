@@ -4,5 +4,6 @@ export {
   parseCollection,
   parseCrate,
   mapRarity,
+  mapApiRarity,
   createUnknownDropProbability,
 } from './bymykel-parser.js';

@@ -1,8 +1,8 @@
 import { execSync } from 'node:child_process';
 
-/** Frontend estático na Vercel não precisa gerar Prisma Client */
+/** Frontend Next.js na Vercel — prisma generate roda no vercel-build (build:packages) */
 if (process.env.VERCEL) {
-  console.log('[postinstall] Vercel: pulando prisma generate (deploy do frontend)');
+  console.log('[postinstall] Vercel: pulando prisma generate (vercel-build gera o client)');
   process.exit(0);
 }
 

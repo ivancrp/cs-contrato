@@ -1,7 +1,7 @@
 import { config } from 'dotenv';
 import { neon, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
-import { mapApiRarity } from '../../src/db/rarityMap';
+import { mapApiRarity } from '@ct/parser';
 
 config();
 

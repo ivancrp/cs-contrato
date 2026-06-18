@@ -5,7 +5,7 @@ let app: FastifyInstance | null = null;
 
 export async function getFastifyApp(): Promise<FastifyInstance> {
   if (!app) {
-    const { buildApp } = await import('../../apps/api/dist/index.js');
+    const { buildApp } = await import('../../../../apps/api/dist/index.js');
     app = await buildApp();
     await app.ready();
   }

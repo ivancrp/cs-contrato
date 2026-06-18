@@ -18,8 +18,7 @@ function run(name: string, command: string, args: string[]) {
 }
 
 console.log('▶ API:      http://localhost:3001');
-console.log('▶ Next.js:  http://localhost:3000');
-console.log('▶ Legado:   npm run dev:legacy (porta 5173)\n');
+console.log('▶ Next.js:  http://localhost:3000\n');
 
 run('api', 'npm', ['run', 'dev:api']);
 run('web', 'npm', ['run', 'dev:web']);

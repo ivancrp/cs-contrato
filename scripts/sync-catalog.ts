@@ -1,21 +1,16 @@
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildCatalogFromApiSkins, SKINS_API_URL, type ApiSkin } from '../src/data/buildCatalog';
+import { fetchCatalog } from '@ct/parser';
 
 async function syncCatalog(): Promise<void> {
-  const response = await fetch(SKINS_API_URL);
-  if (!response.ok) {
-    throw new Error(`Falha ao baixar catálogo: HTTP ${response.status}`);
-  }
-
-  const apiSkins = (await response.json()) as ApiSkin[];
-  const collections = buildCatalogFromApiSkins(apiSkins);
-
+  const { collections } = await fetchCatalog();
   const totalSkins = collections.reduce((sum, col) => sum + col.items.length, 0);
   const __dirname = dirname(fileURLToPath(import.meta.url));
-  const outputPath = join(__dirname, '../src/data/catalog.json');
+  const outputDir = join(__dirname, '../data');
+  const outputPath = join(outputDir, 'catalog.json');
 
+  mkdirSync(outputDir, { recursive: true });
   writeFileSync(outputPath, `${JSON.stringify(collections, null, 2)}\n`, 'utf8');
 
   console.log(`Catálogo sincronizado: ${collections.length} coleções, ${totalSkins} skins.`);

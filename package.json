@@ -10,20 +10,16 @@
     "services/*"
   ],
   "scripts": {
-    "dev": "npm run dev:api",
+    "dev": "npm run dev:stack",
     "dev:api": "npm run dev -w @ct/api",
-    "dev:legacy": "vite",
     "dev:web": "npm run dev -w @ct/web",
     "dev:stack": "node scripts/dev-stack.mjs",
-    "dev:all": "node scripts/dev-all.mjs",
     "dev:workers": "npm run dev -w @ct/workers",
     "build": "node scripts/build-packages.mjs",
     "build:packages": "node scripts/build-packages.mjs",
-    "build:legacy": "tsc -b && vite build",
     "build:web": "npm run build -w @ct/web",
-    "vercel-build": "npm run build:packages && npm run build:legacy",
+    "vercel-build": "npm run build:packages && npm run build:web",
     "test": "node scripts/run-tests.mjs",
-    "test:legacy": "vitest run",
     "lint": "turbo run lint",
     "db:generate": "npm run db:generate -w @ct/api",
     "db:push": "node scripts/db-push.mjs",
@@ -32,34 +28,17 @@
     "catalog:sync": "tsx scripts/sync-catalog.ts",
     "postinstall": "node scripts/postinstall.mjs"
   },
-  "dependencies": {
-    "@neondatabase/serverless": "^1.0.2",
-    "@vlydev/cs2-masked-inspect-ts": "^1.1.6",
-    "dotenv": "^17.2.3",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "recharts": "^2.15.0"
-  },
   "devDependencies": {
-    "@eslint/js": "^9.17.0",
     "@types/node": "^25.9.3",
-    "@types/react": "^18.3.18",
-    "@types/react-dom": "^18.3.5",
     "@types/ws": "^8.18.1",
-    "@vercel/node": "^5.3.0",
-    "@vitejs/plugin-react": "^4.3.4",
-    "@vitest/coverage-v8": "^2.1.8",
-    "eslint": "^9.17.0",
-    "eslint-plugin-react-hooks": "^5.1.0",
-    "eslint-plugin-react-refresh": "^0.4.16",
-    "globals": "^15.14.0",
-    "jsdom": "^25.0.1",
     "tsx": "^4.20.6",
     "turbo": "^2.4.4",
     "typescript": "~5.6.2",
-    "typescript-eslint": "^8.18.2",
-    "vite": "^5.4.11",
-    "vitest": "^2.1.8",
     "ws": "^8.18.3"
+  },
+  "dependencies": {
+    "@ct/parser": "*",
+    "@neondatabase/serverless": "^1.0.2",
+    "dotenv": "^17.2.3"
   }
 }

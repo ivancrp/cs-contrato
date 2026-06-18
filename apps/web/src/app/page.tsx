@@ -8,8 +8,8 @@ export default function HomePage() {
           Trade Up Optimizer CS2
         </h1>
         <p className="mt-3 max-w-2xl text-slate-300">
-          Monorepo com API Fastify, engine de probabilidade, otimizador multi-tier e
-          frontend Next.js (Fase 2). O app legado Vite continua disponível em paralelo.
+          Plataforma de análise e otimização de Trade Up Contracts com API Fastify,
+          engine de probabilidade, ranking de oportunidades e alertas de ROI.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
@@ -24,14 +24,20 @@ export default function HomePage() {
           >
             Buscar Contratos
           </Link>
+          <Link
+            href="/opportunities"
+            className="rounded-lg border border-surface-border px-5 py-2.5 text-sm hover:bg-surface-border/40"
+          >
+            TOP 100
+          </Link>
         </div>
       </section>
 
       <section className="grid gap-4 sm:grid-cols-3">
         {[
-          { title: 'Fase 1', desc: 'API, engine, Prisma, Redis, providers' },
-          { title: 'Fase 2', desc: 'Next.js, dashboard, gráficos' },
-          { title: 'Fase 3', desc: 'Scanner, TOP 100, alertas' },
+          { title: 'Trade Up', desc: 'Busca multi-tier com autocomplete e preços de mercado' },
+          { title: 'Oportunidades', desc: 'Ranking TOP 100 por ROI com scan e gráficos' },
+          { title: 'Alertas', desc: 'Notificações quando uma skin atinge ROI mínimo' },
         ].map((item) => (
           <div
             key={item.title}

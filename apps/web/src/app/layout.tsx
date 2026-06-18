@@ -32,13 +32,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/alerts" className="hover:text-white">
                 Alertas
               </Link>
-              <a
-                href="/"
-                className="text-slate-500 hover:text-slate-300"
-                title="App legado Vite"
-              >
-                Legado
-              </a>
             </nav>
           </div>
         </header>
