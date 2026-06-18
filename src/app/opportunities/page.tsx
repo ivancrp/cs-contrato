@@ -13,6 +13,9 @@ interface Opportunity {
   weapon: string;
   roi: number;
   expectedProfit: number;
+  referencePrice?: number;
+  estimatedCost?: number;
+  expectedValue?: number;
   totalCost: number;
   targetChance: number;
   tier: string;
@@ -58,6 +61,9 @@ export default function OpportunitiesPage() {
             name: i.targetSkinName,
             roi: i.roi,
             expectedProfit: i.expectedProfit,
+            referencePrice: i.referencePrice,
+            estimatedCost: i.estimatedCost ?? i.totalCost,
+            expectedValue: i.expectedValue,
           }))}
         />
       </div>

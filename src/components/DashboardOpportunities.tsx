@@ -12,6 +12,9 @@ interface OpportunityItem {
   weapon: string;
   roi: number;
   expectedProfit: number;
+  referencePrice?: number;
+  estimatedCost?: number;
+  expectedValue?: number;
   imageUrl?: string;
   rarity?: Rarity;
 }
@@ -22,7 +25,7 @@ export function DashboardOpportunities() {
 
   useEffect(() => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12_000);
+    const timeout = setTimeout(() => controller.abort(), 30_000);
 
     fetch(`${API_BASE}/opportunities?limit=12`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : { items: [] }))
@@ -42,6 +45,9 @@ export function DashboardOpportunities() {
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-6">
       <h2 className="font-semibold">TOP oportunidades (ROI)</h2>
+      <p className="mt-1 text-xs text-slate-500">
+        Referência = preço da skin alvo · Custo = 10 inputs mais baratos · Valor esp. = média dos outputs
+      </p>
       <div className="mt-4">
         {loading ? (
           <p className="text-sm text-slate-500">Carregando ranking…</p>
@@ -53,6 +59,9 @@ export function DashboardOpportunities() {
                 name: i.targetSkinName,
                 roi: i.roi,
                 expectedProfit: i.expectedProfit,
+                referencePrice: i.referencePrice,
+                estimatedCost: i.estimatedCost,
+                expectedValue: i.expectedValue,
               }))}
             />
           </>
