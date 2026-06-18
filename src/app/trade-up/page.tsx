@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { API_BASE } from '@/lib/api';
-import { SkinAutocomplete } from '@/components/SkinAutocomplete';
+import { SkinAutocomplete, type SkinHit } from '@/components/SkinAutocomplete';
 
 export default function TradeUpPage() {
   const [skinName, setSkinName] = useState('');
+  const [selectedSkinId, setSelectedSkinId] = useState<string | undefined>();
   const [stattrak, setStattrak] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +27,7 @@ export default function TradeUpPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           skinName,
+          targetSkinId: selectedSkinId,
           stattrak,
           wear: 'Field-Tested',
           marketplace: 'csfloat',
@@ -55,20 +57,31 @@ export default function TradeUpPage() {
           <SkinAutocomplete
             value={skinName}
             stattrak={stattrak}
-            onChange={(skin, query) => setSkinName(skin?.name ?? query)}
+            selectedSkinId={selectedSkinId}
+            onChange={(query) => {
+              setSkinName(query);
+              setSelectedSkinId(undefined);
+            }}
+            onSelect={(skin: SkinHit) => {
+              setSkinName(skin.name);
+              setSelectedSkinId(skin.id);
+            }}
           />
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={stattrak}
-            onChange={(e) => setStattrak(e.target.checked)}
+            onChange={(e) => {
+              setStattrak(e.target.checked);
+              setSelectedSkinId(undefined);
+            }}
           />
           StatTrak
         </label>
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || skinName.trim().length < 2}
           className="rounded-lg bg-accent px-5 py-2 text-sm font-medium text-black disabled:opacity-50"
         >
           {loading ? 'Buscando…' : 'Buscar contratos'}

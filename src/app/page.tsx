@@ -14,7 +14,8 @@ export default function HomePage() {
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
             href="/dashboard"
-            className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-black hover:bg-accent-muted"
+            prefetch
+            className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-black hover:opacity-90"
           >
             Abrir Dashboard
           </Link>

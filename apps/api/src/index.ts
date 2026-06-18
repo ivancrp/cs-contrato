@@ -158,15 +158,16 @@ export async function buildApp() {
   await registerAlertRoutes(app, async () => (await getContext()).cache);
 
   app.get('/search', async (req) => {
-    const query = req.query as { q: string; type?: string };
+    const query = req.query as { q: string; type?: string; limit?: string };
     const ctx = await getContext();
     const q = (query.q ?? '').toLowerCase();
+    const limit = Math.min(Math.max(Number(query.limit ?? 100) || 100, 1), 100);
 
     const skins = ctx.skins.filter(
       (s) => s.name.toLowerCase().includes(q) || s.weapon.toLowerCase().includes(q),
     );
 
-    return { query: query.q, type: query.type ?? 'skin', results: skins.slice(0, 100) };
+    return { query: query.q, type: query.type ?? 'skin', results: skins.slice(0, limit) };
   });
 
   app.get('/prices', async (req, reply) => {

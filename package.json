@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "@ct/parser": "*",
+    "@ct/types": "*",
     "@neondatabase/serverless": "^1.0.2",
     "dotenv": "^17.2.3",
     "next": "^15.1.6",

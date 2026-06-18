@@ -37,9 +37,13 @@ export default function AlertsPage() {
           <label className="mb-1 block text-sm text-slate-400">Skin</label>
           <SkinAutocomplete
             value={skinName}
-            onChange={(skin, query) => {
-              setSkinId(skin?.id ?? '');
-              setSkinName(skin?.name ?? query);
+            onChange={(query) => {
+              setSkinName(query);
+              setSkinId('');
+            }}
+            onSelect={(skin) => {
+              setSkinName(skin.name);
+              setSkinId(skin.id);
             }}
           />
         </div>
