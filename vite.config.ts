@@ -61,6 +61,11 @@ export default defineConfig({
   plugins: [react(), steamImageProxy()],
   server: {
     proxy: {
+      '/api/health': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: () => '/health',
+      },
       '/api/backend': {
         target: 'http://localhost:3001',
         changeOrigin: true,
@@ -75,6 +80,11 @@ export default defineConfig({
   },
   preview: {
     proxy: {
+      '/api/health': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: () => '/health',
+      },
       '/api/backend': {
         target: 'http://localhost:3001',
         changeOrigin: true,

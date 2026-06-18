@@ -1,4 +1,4 @@
-import { API_BASE_URL, API_ENABLED } from '../../config/api';
+import { API_BASE_URL, API_ENABLED, API_HEALTH_URL } from '../../config/api';
 import type { Collection, SimulationResult, TradeUpContract } from '../../models/types';
 import { toApiContract } from './contractAdapter';
 
@@ -50,8 +50,22 @@ export async function checkApiHealth(force = false): Promise<boolean> {
 
   healthCheckPromise = (async () => {
     try {
-      const data = await request<HealthResponse>('/health');
-      apiAvailable = data.status === 'ok';
+      const urls = [API_HEALTH_URL, `${API_BASE_URL}/health`];
+      let ok = false;
+      for (const url of urls) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const data = (await res.json()) as HealthResponse;
+          if (data.status === 'ok') {
+            ok = true;
+            break;
+          }
+        } catch {
+          /* tenta próximo endpoint */
+        }
+      }
+      apiAvailable = ok;
     } catch {
       apiAvailable = false;
     }
