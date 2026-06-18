@@ -18,6 +18,7 @@
     "build": "node scripts/build-packages.mjs",
     "build:packages": "node scripts/build-packages.mjs",
     "build:legacy": "tsc -b && vite build",
+    "vercel-build": "npm run build:legacy",
     "test": "node scripts/run-tests.mjs",
     "test:legacy": "vitest run",
     "lint": "turbo run lint",
@@ -26,7 +27,7 @@
     "db:migrate": "tsx scripts/db/migrate.ts",
     "db:seed": "tsx scripts/db/seed-skins.ts",
     "catalog:sync": "tsx scripts/sync-catalog.ts",
-    "postinstall": "npm run db:generate -w @ct/api"
+    "postinstall": "node scripts/postinstall.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
