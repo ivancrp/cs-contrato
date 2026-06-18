@@ -12,13 +12,14 @@
   "scripts": {
     "dev": "npm run dev:stack",
     "dev:api": "npm run dev -w @ct/api",
-    "dev:web": "npm run dev -w @ct/web",
+    "dev:web": "next dev --port 3000",
     "dev:stack": "node scripts/dev-stack.mjs",
     "dev:workers": "npm run dev -w @ct/workers",
     "build": "node scripts/build-packages.mjs",
     "build:packages": "node scripts/build-packages.mjs",
-    "build:web": "npm run build -w @ct/web",
+    "build:web": "next build",
     "vercel-build": "npm run build:packages && npm run build:web",
+    "start": "next start --port 3000",
     "test": "node scripts/run-tests.mjs",
     "lint": "turbo run lint",
     "db:generate": "npm run db:generate -w @ct/api",
@@ -28,17 +29,27 @@
     "catalog:sync": "tsx scripts/sync-catalog.ts",
     "postinstall": "node scripts/postinstall.mjs"
   },
+  "dependencies": {
+    "@ct/parser": "*",
+    "@neondatabase/serverless": "^1.0.2",
+    "dotenv": "^17.2.3",
+    "next": "^15.1.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.15.0"
+  },
   "devDependencies": {
     "@types/node": "^25.9.3",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
     "@types/ws": "^8.18.1",
+    "@vercel/node": "^5.3.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
     "tsx": "^4.20.6",
     "turbo": "^2.4.4",
     "typescript": "~5.6.2",
     "ws": "^8.18.3"
-  },
-  "dependencies": {
-    "@ct/parser": "*",
-    "@neondatabase/serverless": "^1.0.2",
-    "dotenv": "^17.2.3"
   }
 }

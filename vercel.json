@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "buildCommand": "cd ../.. && npm run build:packages && npm run build -w @ct/web",
-  "installCommand": "cd ../.. && npm install",
+  "buildCommand": "npm run vercel-build",
+  "installCommand": "npm install",
   "functions": {
     "api/handler.ts": {
       "maxDuration": 60,
