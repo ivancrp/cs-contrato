@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { API_BASE } from '@/lib/api';
+import { SkinAutocomplete } from '@/components/SkinAutocomplete';
 
 export default function TradeUpPage() {
   const [skinName, setSkinName] = useState('');
@@ -51,12 +52,10 @@ export default function TradeUpPage() {
       >
         <div>
           <label className="block text-sm text-slate-400 mb-1">Skin alvo</label>
-          <input
-            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm"
-            placeholder="Ex: AK-47 | Redline"
+          <SkinAutocomplete
             value={skinName}
-            onChange={(e) => setSkinName(e.target.value)}
-            required
+            stattrak={stattrak}
+            onChange={(skin, query) => setSkinName(skin?.name ?? query)}
           />
         </div>
         <label className="flex items-center gap-2 text-sm">

@@ -1,11 +1,26 @@
-import { fetchApiHealth, fetchCatalogSummary } from '@/lib/api';
+import { fetchApiHealth, fetchCatalogSummary, API_BASE } from '@/lib/api';
+import { OpportunitiesChart } from '@/components/OpportunitiesChart';
 
 export const dynamic = 'force-dynamic';
 
+async function fetchTopOpportunities() {
+  try {
+    const res = await fetch(`${API_BASE}/opportunities?limit=12`, { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      items: Array<{ targetSkinName: string; roi: number; expectedProfit: number }>;
+    };
+    return data.items;
+  } catch {
+    return [];
+  }
+}
+
 export default async function DashboardPage() {
-  const [health, catalog] = await Promise.all([
+  const [health, catalog, opportunities] = await Promise.all([
     fetchApiHealth(),
     fetchCatalogSummary().catch(() => null),
+    fetchTopOpportunities(),
   ]);
 
   const online = health?.status === 'ok';
@@ -33,6 +48,19 @@ export default async function DashboardPage() {
           label="Fonte dados"
           value={health?.catalogSource ?? catalog?.source ?? '—'}
         />
+      </div>
+
+      <div className="rounded-xl border border-surface-border bg-surface-card p-6">
+        <h2 className="font-semibold">TOP oportunidades (ROI)</h2>
+        <div className="mt-4">
+          <OpportunitiesChart
+            items={opportunities.map((i) => ({
+              name: i.targetSkinName,
+              roi: i.roi,
+              expectedProfit: i.expectedProfit,
+            }))}
+          />
+        </div>
       </div>
 
       <div className="rounded-xl border border-surface-border bg-surface-card p-6">

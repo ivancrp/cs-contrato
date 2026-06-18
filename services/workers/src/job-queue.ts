@@ -75,7 +75,10 @@ export class JobQueue {
       case 'optimize':
         return { message: 'Otimização assíncrona — em desenvolvimento' };
       case 'scan_prices':
-        return { message: 'Scan de preços — Fase 3' };
+        return {
+          message: 'Dispare POST /opportunities/scan na API para atualizar o TOP 100',
+          endpoint: '/opportunities/scan',
+        };
       default:
         throw new Error(`Tipo de job desconhecido: ${job.type}`);
     }

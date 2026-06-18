@@ -16,12 +16,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="text-lg font-semibold text-accent">
               ⚡ CS Contrato
             </Link>
-            <nav className="flex gap-4 text-sm text-slate-300">
+            <nav className="flex flex-wrap gap-4 text-sm text-slate-300">
               <Link href="/dashboard" className="hover:text-white">
                 Dashboard
               </Link>
               <Link href="/trade-up" className="hover:text-white">
                 Trade Up
+              </Link>
+              <Link href="/opportunities" className="hover:text-white">
+                TOP 100
+              </Link>
+              <Link href="/stattrak" className="hover:text-white">
+                StatTrak
+              </Link>
+              <Link href="/alerts" className="hover:text-white">
+                Alertas
               </Link>
               <a
                 href="/"

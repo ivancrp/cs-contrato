@@ -7,6 +7,8 @@ import { loadCatalog } from './services/catalog-service.js';
 import { createDefaultPriceAggregator } from '@ct/pricing';
 import { optimize } from '@ct/optimizer';
 import { registerTradeUpRoutes } from './routes/trade-up.js';
+import { registerOpportunitiesRoutes } from './routes/opportunities.js';
+import { registerAlertRoutes } from './routes/alerts.js';
 import { registerRiskRoutes } from './routes/risk.js';
 import { registerSimulationRoutes } from './routes/simulate.js';
 import type {
@@ -152,6 +154,8 @@ export async function buildApp() {
   await registerSimulationRoutes(app);
   await registerRiskRoutes(app);
   await registerTradeUpRoutes(app, getContext);
+  await registerOpportunitiesRoutes(app, getContext);
+  await registerAlertRoutes(app, async () => (await getContext()).cache);
 
   app.get('/search', async (req) => {
     const query = req.query as { q: string; type?: string };
@@ -227,13 +231,6 @@ export async function buildApp() {
     });
 
     return result;
-  });
-
-  app.get('/opportunities', async () => {
-    return {
-      items: [],
-      note: 'Fase 3 — ranking TOP 100 será implementado com scanner de mercado',
-    };
   });
 
   return app;

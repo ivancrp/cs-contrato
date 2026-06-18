@@ -410,6 +410,26 @@ function buildCheapFallback(
 export async function optimizeAllTiers(
   baseCtx: EvaluationContext,
 ): Promise<{ result: OptimizationResult; algorithm: AlgorithmType; tierId: TradeUpContract['tier']; label: string }[]> {
+  try {
+    const { optimizeAllTiersViaPackage } = await import('./legacy-optimizer-bridge.js');
+    const itemsById = new Map(
+      getCollections().flatMap((c) => c.items).map((item) => [item.id, item]),
+    );
+    const fromPackage = optimizeAllTiersViaPackage(baseCtx, {
+      collections: getCollections(),
+      itemsById,
+    });
+    if (fromPackage.length > 0) {
+      return fromPackage.map((entry) => ({
+        ...entry,
+        tierId: entry.tierId as TradeUpContract['tier'],
+        algorithm: entry.algorithm as AlgorithmType,
+      }));
+    }
+  } catch {
+    /* fallback para otimizador legado abaixo */
+  }
+
   const results: { result: OptimizationResult; algorithm: AlgorithmType; tierId: TradeUpContract['tier']; label: string }[] = [];
   const usedSignatures = new Set<string>();
   const originalCandidates = baseCtx.candidates;
