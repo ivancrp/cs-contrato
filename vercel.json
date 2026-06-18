@@ -1,12 +1,23 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build:legacy",
+  "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "functions": {
+    "api/[[...path]].ts": {
+      "maxDuration": 60,
+      "memory": 1024,
+      "includeFiles": "{apps/api/dist/**,packages/*/dist/**}"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/csfloat/:path*",
       "destination": "https://csfloat.com/api/:path*"
+    },
+    {
+      "source": "/api/backend/:path*",
+      "destination": "/api/:path*"
     }
   ]
 }
