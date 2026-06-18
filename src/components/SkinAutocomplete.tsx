@@ -34,6 +34,7 @@ export function SkinAutocomplete({
   onSelect,
   stattrak = false,
   selectedSkinId,
+  selectedSkin,
   placeholder = 'Buscar skin alvo…',
 }: {
   value: string;
@@ -41,6 +42,7 @@ export function SkinAutocomplete({
   onSelect?: (skin: SkinHit) => void;
   stattrak?: boolean;
   selectedSkinId?: string;
+  selectedSkin?: SkinHit | null;
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -49,6 +51,7 @@ export function SkinAutocomplete({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const suppressSearchRef = useRef(false);
+  const activeQueryRef = useRef('');
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -67,39 +70,62 @@ export function SkinAutocomplete({
     }
 
     const trimmed = value.trim();
+    activeQueryRef.current = trimmed;
+
     if (!open || trimmed.length < MIN_QUERY_LENGTH) {
       setResults([]);
       setLoading(false);
       return;
     }
 
+    setResults([]);
+    setLoading(true);
+
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
-      setLoading(true);
+      const querySnapshot = trimmed;
       try {
-        const params = new URLSearchParams({ q: trimmed, limit: '12' });
-        const res = await fetch(`${API_BASE}/search?${params}`);
+        const params = new URLSearchParams({
+          q: querySnapshot,
+          limit: '12',
+          stattrak: String(stattrak),
+        });
+        const res = await fetch(`${API_BASE}/search?${params}`, {
+          signal: controller.signal,
+        });
+
         if (!res.ok) {
-          setResults([]);
+          if (activeQueryRef.current === querySnapshot) setResults([]);
           return;
         }
+
         const data = (await res.json()) as { results: SkinHit[] };
-        setResults(
-          data.results.filter((skin) => skin.stattrak === stattrak),
-        );
+
+        if (activeQueryRef.current !== querySnapshot) return;
+
+        setResults(data.results);
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
+        if (activeQueryRef.current === querySnapshot) setResults([]);
       } finally {
-        setLoading(false);
+        if (activeQueryRef.current === querySnapshot) setLoading(false);
       }
     }, SEARCH_DEBOUNCE_MS);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [value, stattrak, open]);
 
   function pickSkin(skin: SkinHit) {
     suppressSearchRef.current = true;
-    onSelect?.(skin);
-    onChange(skin.name);
+    activeQueryRef.current = skin.name;
     setOpen(false);
     setResults([]);
+    setLoading(false);
+    onSelect?.(skin);
+    onChange(skin.name);
     inputRef.current?.blur();
   }
 
@@ -107,24 +133,34 @@ export function SkinAutocomplete({
 
   return (
     <div className="relative" ref={containerRef}>
-      <input
-        ref={inputRef}
-        type="text"
-        autoComplete="off"
-        spellCheck={false}
-        aria-autocomplete="list"
-        aria-expanded={showDropdown}
-        className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm"
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => {
-          if (value.trim().length >= MIN_QUERY_LENGTH) setOpen(true);
-        }}
-      />
+      <div className="flex items-center gap-3">
+        {selectedSkin && selectedSkinId && (
+          <SkinImage
+            name={selectedSkin.name}
+            imageUrl={selectedSkin.imageUrl}
+            rarity={selectedSkin.rarity}
+            size="sm"
+          />
+        )}
+        <input
+          ref={inputRef}
+          type="text"
+          autoComplete="off"
+          spellCheck={false}
+          aria-autocomplete="list"
+          aria-expanded={showDropdown}
+          className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm"
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => {
+            if (value.trim().length >= MIN_QUERY_LENGTH) setOpen(true);
+          }}
+        />
+      </div>
 
       {showDropdown && (
         <ul

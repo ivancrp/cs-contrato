@@ -158,16 +158,16 @@ export async function buildApp() {
   await registerAlertRoutes(app, async () => (await getContext()).cache);
 
   app.get('/search', async (req) => {
-    const query = req.query as { q: string; type?: string; limit?: string };
+    const query = req.query as { q: string; type?: string; limit?: string; stattrak?: string };
     const ctx = await getContext();
-    const q = (query.q ?? '').toLowerCase();
-    const limit = Math.min(Math.max(Number(query.limit ?? 100) || 100, 1), 100);
+    const limit = Math.min(Math.max(Number(query.limit ?? 12) || 12, 1), 100);
+    const stattrak =
+      query.stattrak === 'true' ? true : query.stattrak === 'false' ? false : undefined;
 
-    const skins = ctx.skins.filter(
-      (s) => s.name.toLowerCase().includes(q) || s.weapon.toLowerCase().includes(q),
-    );
+    const { searchSkins } = await import('./services/skin-search-service.js');
+    const results = searchSkins(ctx.skins, query.q ?? '', { stattrak, limit });
 
-    return { query: query.q, type: query.type ?? 'skin', results: skins.slice(0, limit) };
+    return { query: query.q, type: query.type ?? 'skin', results };
   });
 
   app.get('/prices', async (req, reply) => {

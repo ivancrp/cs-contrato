@@ -7,6 +7,7 @@ import { SkinAutocomplete, type SkinHit } from '@/components/SkinAutocomplete';
 export default function TradeUpPage() {
   const [skinName, setSkinName] = useState('');
   const [selectedSkinId, setSelectedSkinId] = useState<string | undefined>();
+  const [selectedSkin, setSelectedSkin] = useState<SkinHit | null>(null);
   const [stattrak, setStattrak] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,13 +59,16 @@ export default function TradeUpPage() {
             value={skinName}
             stattrak={stattrak}
             selectedSkinId={selectedSkinId}
+            selectedSkin={selectedSkin}
             onChange={(query) => {
               setSkinName(query);
               setSelectedSkinId(undefined);
+              setSelectedSkin(null);
             }}
             onSelect={(skin: SkinHit) => {
               setSkinName(skin.name);
               setSelectedSkinId(skin.id);
+              setSelectedSkin(skin);
             }}
           />
         </div>
@@ -75,6 +79,7 @@ export default function TradeUpPage() {
             onChange={(e) => {
               setStattrak(e.target.checked);
               setSelectedSkinId(undefined);
+              setSelectedSkin(null);
             }}
           />
           StatTrak

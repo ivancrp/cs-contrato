@@ -8,6 +8,7 @@ export interface OpportunityItem {
   targetSkinName: string;
   weapon: string;
   rarity: SkinItem['rarity'];
+  imageUrl?: string;
   tier: string;
   roi: number;
   expectedProfit: number;
@@ -82,6 +83,7 @@ export async function scanTopOpportunities(
       targetSkinName: skin.name,
       weapon: skin.weapon,
       rarity: skin.rarity,
+      imageUrl: skin.imageUrl,
       tier: roi > 5 ? 'premium' : roi > 0 ? 'balanced' : 'budget',
       roi: Math.round(roi * 100) / 100,
       expectedProfit: Math.round(expectedProfit * 100) / 100,
@@ -106,23 +108,42 @@ export async function getOpportunities(
   limit = 100,
 ): Promise<OpportunityCache & { source: 'memory' | 'cache' | 'fresh' }> {
   if (memoryCache?.items.length) {
-    return {
-      ...memoryCache,
-      items: memoryCache.items.slice(0, limit),
-      source: 'memory',
-    };
+    return withEnrichedItems(ctx, memoryCache, limit, 'memory');
   }
 
   const cached = await ctx.cache.get<OpportunityCache>(CACHE_KEY);
   if (cached?.items?.length) {
     memoryCache = cached;
-    return { ...cached, items: cached.items.slice(0, limit), source: 'cache' };
+    return withEnrichedItems(ctx, cached, limit, 'cache');
   }
 
   const fresh = await scanTopOpportunities(ctx, limit);
-  return { ...fresh, items: fresh.items.slice(0, limit), source: 'fresh' };
+  return withEnrichedItems(ctx, fresh, limit, 'fresh');
 }
 
 export function invalidateOpportunityCache(): void {
   memoryCache = null;
+}
+
+function enrichWithCatalog(ctx: AppContext, items: OpportunityItem[]): OpportunityItem[] {
+  return items.map((item) => {
+    const skin = ctx.skinsById.get(item.targetSkinId);
+    if (!skin) return item;
+    return {
+      ...item,
+      imageUrl: item.imageUrl ?? skin.imageUrl,
+      rarity: item.rarity ?? skin.rarity,
+      weapon: item.weapon || skin.weapon,
+    };
+  });
+}
+
+function withEnrichedItems(
+  ctx: AppContext,
+  cache: OpportunityCache,
+  limit: number,
+  source: 'memory' | 'cache' | 'fresh',
+): OpportunityCache & { source: typeof source } {
+  const items = enrichWithCatalog(ctx, cache.items.slice(0, limit));
+  return { ...cache, items, source };
 }
