@@ -65,9 +65,67 @@ class PriceService {
     wear: WearTier,
     marketplace: Marketplace = 'all',
   ): Promise<number> {
-    await this.ensureLoaded();
     const hash = buildMarketHashName(skinName, stattrak, wear);
+    const fromApi = await this.tryApiPrice(skinName, stattrak, wear, marketplace);
+    if (fromApi > 0) return fromApi;
+
+    await this.ensureLoaded();
     return this.resolvePrice(hash, marketplace);
+  }
+
+  async getOutputPrice(
+    skinName: string,
+    stattrak: boolean,
+    expectedFloat: number,
+    marketplace: Marketplace = 'all',
+  ): Promise<number> {
+    const wear = floatToWear(expectedFloat);
+    const fromApi = await this.tryApiPrice(skinName, stattrak, wear, marketplace, expectedFloat);
+    if (fromApi > 0) {
+      const bounds = WEAR_BOUNDS[wear];
+      const range = bounds.max - bounds.min || 1;
+      const position = Math.min(Math.max((expectedFloat - bounds.min) / range, 0), 1);
+      const floatMult = 1 + (1 - position) * 0.12;
+      return Math.round(fromApi * floatMult * 100) / 100;
+    }
+
+    await this.ensureLoaded();
+    return this.getOutputPriceSync(skinName, stattrak, expectedFloat, marketplace);
+  }
+
+  private async tryApiPrice(
+    skinName: string,
+    stattrak: boolean,
+    wear: WearTier,
+    marketplace: Marketplace,
+    float?: number,
+  ): Promise<number> {
+    try {
+      const { checkApiHealth, fetchPriceFromApi } = await import('./api/apiClient');
+      if (!(await checkApiHealth())) return 0;
+
+      const marketHashName = buildMarketHashName(skinName, stattrak, wear);
+      const result = await fetchPriceFromApi(marketHashName, wear, float);
+      if (!result?.quote?.price) return 0;
+      return this.applyMarketplaceFromApi(result.quote.price, marketplace, result.quote.currency);
+    } catch {
+      return 0;
+    }
+  }
+
+  private applyMarketplaceFromApi(
+    price: number,
+    marketplace: Marketplace,
+    currency: string,
+  ): number {
+    let value = price;
+    if (currency === 'USD') {
+      value = price * USD_TO_BRL;
+    }
+    if (marketplace !== 'all' && marketplace in MARKETPLACE_MULTIPLIERS) {
+      value *= MARKETPLACE_MULTIPLIERS[marketplace as keyof typeof MARKETPLACE_MULTIPLIERS];
+    }
+    return Math.round(value * 100) / 100;
   }
 
   async getPriceForFloat(
@@ -96,16 +154,6 @@ class PriceService {
     const position = Math.min(Math.max((float - bounds.min) / range, 0), 1);
     const floatMult = 1 + (1 - position) * 0.12;
     return Math.round(base * floatMult * 100) / 100;
-  }
-
-  async getOutputPrice(
-    skinName: string,
-    stattrak: boolean,
-    expectedFloat: number,
-    marketplace: Marketplace = 'all',
-  ): Promise<number> {
-    await this.ensureLoaded();
-    return this.getOutputPriceSync(skinName, stattrak, expectedFloat, marketplace);
   }
 
   getOutputPriceSync(

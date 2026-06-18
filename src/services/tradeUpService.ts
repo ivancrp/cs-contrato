@@ -18,7 +18,7 @@ import type {
   TradeUpContract,
 } from '../models/types';
 import { simulateContracts } from '../simulations/monteCarlo';
-import { simulateViaApi } from './api/apiClient';
+import { simulateViaApi, searchTradeUpFromApi } from './api/apiClient';
 import { generateAIRecommendation, type AIRecommendation } from './aiAdvisor';
 import type { CandidateListing } from '../algorithms/types';
 import {
@@ -73,6 +73,32 @@ function mergeUniqueContracts(contracts: TradeUpContract[]): TradeUpContract[] {
 export class TradeUpService {
   /** Gera múltiplos contratos otimizados automaticamente */
   async search(params: TargetSearchParams): Promise<TradeUpSearchResult> {
+    const fromApi = await searchTradeUpFromApi(params);
+    if (fromApi) {
+      const realisticContracts = await enrichContractsWithMarketPrices(
+        fromApi.contracts,
+        params.marketplace,
+      );
+      const enrichedMinLoss = realisticContracts.find((c) => c.tier === 'min_loss');
+      const minLossAnalysis = enrichedMinLoss
+        ? analyzeMinLossScenario(
+            enrichedMinLoss.outputs,
+            enrichedMinLoss.evMetrics.totalCost,
+            fromApi.targetSkin.id,
+          )
+        : undefined;
+
+      db.saveContractHistory(params, realisticContracts);
+
+      return {
+        ...fromApi,
+        contracts: realisticContracts,
+        minLossContract: enrichedMinLoss,
+        minLossAnalysis,
+        aiRecommendation: generateAIRecommendation(realisticContracts),
+      };
+    }
+
     await refreshCatalog();
     const prepared = await prepareContractSearch(params);
     const targetSkin = prepared.targetSkin;

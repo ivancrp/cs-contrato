@@ -8,6 +8,14 @@ export {
 
 export { runOptimization, selectAlgorithm, createEvaluationContext } from './run-optimization.js';
 
+export { optimizeAllTiers, type TierOptimizationResult } from './optimize-tiers.js';
+export { TIER_CONFIGS, MIN_LOSS_TIER, scoreToStars } from './tier-configs.js';
+export {
+  buildCheapCandidatePool,
+  buildBalancedCandidatePool,
+  computeFloorCost,
+} from './candidate-pool.js';
+
 export function optimize(context: import('./scoring.js').OptimizationContext) {
   return runOptimization(context);
 }

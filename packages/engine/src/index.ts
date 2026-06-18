@@ -64,3 +64,4 @@ export * from './float/float-engine.js';
 export * from './float/wear-engine.js';
 export * from './probability/probability-engine.js';
 export * from './financial/financial-engine.js';
+export * from './trade-up/target-chance.js';

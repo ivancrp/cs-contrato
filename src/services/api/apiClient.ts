@@ -1,5 +1,6 @@
 import { API_BASE_URL, API_ENABLED, API_HEALTH_URL } from '../../config/api';
-import type { Collection, SimulationResult, TradeUpContract } from '../../models/types';
+import type { Collection, Marketplace, SimulationResult, SkinItem, TargetSearchParams, TradeUpContract } from '../../models/types';
+import { fromApiContract, fromApiSearchCandidate, type ApiEnrichedContract, type ApiSearchCandidate } from './fromApiContract';
 import { toApiContract } from './contractAdapter';
 
 interface HealthResponse {
@@ -179,7 +180,59 @@ export async function fetchPriceFromApi(name: string, wear?: string, float?: num
     const params = new URLSearchParams({ name });
     if (wear) params.set('wear', wear);
     if (float !== undefined) params.set('float', String(float));
-    return request<{ quote: { price: number; currency: string } }>(`/prices?${params}`);
+    return request<{ quote: { price: number; currency: string }; provider?: string }>(`/prices?${params}`);
+  } catch {
+    return null;
+  }
+}
+
+interface TradeUpSearchApiResponse {
+  targetSkin: SkinItem;
+  collections: string[];
+  contracts: ApiEnrichedContract[];
+  candidates: ApiSearchCandidate[];
+  marketAvailability: {
+    marketplace: Marketplace;
+    listingsFound: number;
+    skinsWithListings: number;
+    liveListings: number;
+  };
+}
+
+export interface TradeUpSearchApiResult {
+  targetSkin: SkinItem;
+  collections: string[];
+  contracts: TradeUpContract[];
+  candidates: import('../../algorithms/types').CandidateListing[];
+  marketAvailability: TradeUpSearchApiResponse['marketAvailability'];
+  searchParams: TargetSearchParams;
+}
+
+/** Busca completa de contratos via API backend */
+export async function searchTradeUpFromApi(
+  params: TargetSearchParams,
+): Promise<TradeUpSearchApiResult | null> {
+  if (!(await checkApiHealth())) return null;
+
+  try {
+    const data = await request<TradeUpSearchApiResponse>('/trade-up/search', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+
+    if (!data.contracts?.length) return null;
+
+    const contracts = data.contracts.map(fromApiContract);
+    const candidates = data.candidates.map(fromApiSearchCandidate);
+
+    return {
+      targetSkin: data.targetSkin,
+      collections: data.collections,
+      contracts,
+      candidates,
+      marketAvailability: data.marketAvailability,
+      searchParams: params,
+    };
   } catch {
     return null;
   }

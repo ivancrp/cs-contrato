@@ -178,7 +178,38 @@ export async function searchTargetSkins(
   await catalogStore.refresh();
   invalidateSkinSearchIndex();
   await warmSkinSearchIndexAsync();
-  return searchTargetSkinsSync(query, stattrak, limit);
+
+  const local = searchTargetSkinsSync(query, stattrak, limit);
+  if (local.length >= limit || query.trim().length < 2) {
+    return local;
+  }
+
+  try {
+    const { checkApiHealth, searchSkinsFromApi } = await import('./api/apiClient');
+    if (!(await checkApiHealth())) return local;
+
+    const apiResults = await searchSkinsFromApi(query, limit);
+    if (!apiResults?.length) return local;
+
+    const { catalog } = ensureTargetIndex();
+    const validIds = getValidTargetIds(stattrak);
+    const byId = new Map(catalog.map((s) => [s.id, s]));
+
+    const merged = new Map<string, SkinSearchResult>();
+    for (const item of local) merged.set(item.id, item);
+
+    for (const hit of apiResults) {
+      const skin = byId.get(hit.id);
+      if (!skin || !validIds.has(skin.id)) continue;
+      if (stattrak !== undefined && skin.stattrak !== stattrak) continue;
+      merged.set(skin.id, enrichSkin(skin));
+      if (merged.size >= limit) break;
+    }
+
+    return [...merged.values()].slice(0, limit);
+  } catch {
+    return local;
+  }
 }
 
 export const skinSearchService = {

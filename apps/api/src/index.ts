@@ -1,11 +1,12 @@
-import type { CacheAdapter } from '@ct/common';
 import { createCacheAdapter } from '@ct/common';
+import { refreshTradeUpCollectionEligibility } from '@ct/contracts';
 import { defaultRuleRegistry } from '@ct/contracts';
 import { buildTradeUpContract } from '@ct/engine';
 import { buildContractWithMarketPrices } from './services/contract-service.js';
 import { fetchCatalog } from '@ct/parser';
 import { createDefaultPriceAggregator } from '@ct/pricing';
 import { optimize } from '@ct/optimizer';
+import { registerTradeUpRoutes } from './routes/trade-up.js';
 import { registerRiskRoutes } from './routes/risk.js';
 import { registerSimulationRoutes } from './routes/simulate.js';
 import type {
@@ -22,17 +23,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 config({ path: resolve(dirname(fileURLToPath(import.meta.url)), '../../../.env') });
 
-export interface AppContext {
-  cache: CacheAdapter;
-  collections: Collection[];
-  skins: SkinItem[];
-  skinsById: Map<string, SkinItem>;
-}
+import type { AppContext } from './app-context.js';
 
 let context: AppContext | null = null;
 
 async function getContext(): Promise<AppContext> {
   if (context) return context;
+
+  await refreshTradeUpCollectionEligibility();
 
   const cache = await createCacheAdapter();
   const cachedCatalog = await cache.get<{ collections: Collection[]; skins: SkinItem[] }>('catalog');
@@ -153,6 +151,7 @@ export async function buildApp() {
 
   await registerSimulationRoutes(app);
   await registerRiskRoutes(app);
+  await registerTradeUpRoutes(app, getContext);
 
   app.get('/search', async (req) => {
     const query = req.query as { q: string; type?: string };

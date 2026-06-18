@@ -4,6 +4,8 @@ import { calculateEVMetrics } from '@ct/engine';
 export interface CandidateListing {
   listing: ContractInput['listing'];
   item: ContractInput['item'];
+  isTargetCollection?: boolean;
+  floatFitScore?: number;
 }
 
 export interface OptimizationContext {
