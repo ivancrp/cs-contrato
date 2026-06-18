@@ -1,5 +1,8 @@
 import { ByMykelPriceProvider } from './providers/bymykel-provider.js';
 import { CsfloatPriceProvider } from './providers/csfloat-provider.js';
+import { BuffPriceProvider } from './providers/buff-provider.js';
+import { SkinportPriceProvider } from './providers/skinport-provider.js';
+import { SteamPriceProvider } from './providers/steam-provider.js';
 import type { CacheAdapter } from '@ct/common';
 import type { AggregatedPrice, PriceProvider, PriceRequest } from './providers/price-provider.js';
 
@@ -59,7 +62,13 @@ export class PriceAggregator {
 
 export function createDefaultPriceAggregator(cache?: CacheAdapter): PriceAggregator {
   return new PriceAggregator(
-    [new CsfloatPriceProvider(), new ByMykelPriceProvider()],
+    [
+      new CsfloatPriceProvider(),
+      new SkinportPriceProvider(),
+      new SteamPriceProvider(),
+      new BuffPriceProvider(),
+      new ByMykelPriceProvider(),
+    ],
     cache,
   );
 }

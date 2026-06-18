@@ -6,4 +6,5 @@ export interface AppContext {
   collections: Collection[];
   skins: SkinItem[];
   skinsById: Map<string, SkinItem>;
+  catalogSource: 'prisma' | 'cache' | 'parser';
 }

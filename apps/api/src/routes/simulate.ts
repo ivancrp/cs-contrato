@@ -1,9 +1,17 @@
 import type { FastifyInstance } from 'fastify';
 import { simulateMonteCarlo, SIMULATION_PRESETS } from '@ct/simulator';
 import type { TradeUpContract } from '@ct/types';
-import { JobQueue } from '@ct/workers/job-queue';
+import { createJobQueue } from '@ct/workers/job-queue-factory';
+import type { AnyJobQueue } from '@ct/workers/job-queue-factory';
 
-const jobQueue = new JobQueue();
+let jobQueuePromise: Promise<AnyJobQueue> | null = null;
+
+async function getJobQueue(): Promise<AnyJobQueue> {
+  if (!jobQueuePromise) {
+    jobQueuePromise = createJobQueue();
+  }
+  return jobQueuePromise;
+}
 
 export async function registerSimulationRoutes(app: FastifyInstance): Promise<void> {
   app.get('/simulate/presets', async () => ({
@@ -25,7 +33,8 @@ export async function registerSimulationRoutes(app: FastifyInstance): Promise<vo
     const iterations = body.iterations ?? 10_000;
 
     if (body.async || iterations > 100_000) {
-      const job = jobQueue.enqueue('simulate', {
+      const jobQueue = await getJobQueue();
+      const job = await jobQueue.enqueue('simulate', {
         contract: body.contract,
         iterations,
         seed: body.seed,
@@ -38,7 +47,8 @@ export async function registerSimulationRoutes(app: FastifyInstance): Promise<vo
 
   app.get('/simulate/jobs/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const job = jobQueue.get(id);
+    const jobQueue = await getJobQueue();
+    const job = await jobQueue.get(id);
     if (!job) return reply.status(404).send({ error: 'Job não encontrado' });
     return job;
   });

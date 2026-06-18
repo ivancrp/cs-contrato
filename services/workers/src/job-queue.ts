@@ -18,7 +18,7 @@ export class JobQueue {
   private queue: string[] = [];
   private processing = false;
 
-  enqueue<T>(type: JobType, payload: T): Job<T> {
+  async enqueue<T>(type: JobType, payload: T): Promise<Job<T>> {
     const job: Job<T> = {
       id: `job_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       type,
@@ -32,9 +32,11 @@ export class JobQueue {
     return job;
   }
 
-  get(id: string): Job | undefined {
+  async get(id: string): Promise<Job | undefined> {
     return this.jobs.get(id);
   }
+
+  async ping(): Promise<void> {}
 
   private async processNext(): Promise<void> {
     if (this.processing || this.queue.length === 0) return;

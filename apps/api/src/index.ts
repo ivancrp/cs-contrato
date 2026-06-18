@@ -3,17 +3,15 @@ import { refreshTradeUpCollectionEligibility } from '@ct/contracts';
 import { defaultRuleRegistry } from '@ct/contracts';
 import { buildTradeUpContract } from '@ct/engine';
 import { buildContractWithMarketPrices } from './services/contract-service.js';
-import { fetchCatalog } from '@ct/parser';
+import { loadCatalog } from './services/catalog-service.js';
 import { createDefaultPriceAggregator } from '@ct/pricing';
 import { optimize } from '@ct/optimizer';
 import { registerTradeUpRoutes } from './routes/trade-up.js';
 import { registerRiskRoutes } from './routes/risk.js';
 import { registerSimulationRoutes } from './routes/simulate.js';
 import type {
-  Collection,
   ContractInput,
   OptimizationStrategy,
-  SkinItem,
 } from '@ct/types';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
@@ -27,33 +25,24 @@ import type { AppContext } from './app-context.js';
 
 let context: AppContext | null = null;
 
+export function invalidateAppContext(): void {
+  context = null;
+}
+
 async function getContext(): Promise<AppContext> {
   if (context) return context;
 
   await refreshTradeUpCollectionEligibility();
 
   const cache = await createCacheAdapter();
-  const cachedCatalog = await cache.get<{ collections: Collection[]; skins: SkinItem[] }>('catalog');
-
-  let collections: Collection[];
-  let skins: SkinItem[];
-
-  if (cachedCatalog) {
-    collections = cachedCatalog.collections;
-    skins = cachedCatalog.skins;
-  } else {
-    const catalog = await fetchCatalog();
-    collections = catalog.collections;
-    skins = catalog.skins;
-    await cache.set('catalog', { collections, skins }, Number(process.env.CACHE_TTL_CATALOG ?? 86400));
-    await cache.set('crates', catalog.crates, Number(process.env.CACHE_TTL_CATALOG ?? 86400));
-  }
+  const catalog = await loadCatalog(cache);
 
   context = {
     cache,
-    collections,
-    skins,
-    skinsById: new Map(skins.map((s) => [s.id, s])),
+    collections: catalog.collections,
+    skins: catalog.skins,
+    catalogSource: catalog.source,
+    skinsById: new Map(catalog.skins.map((s) => [s.id, s])),
   };
 
   return context;
@@ -63,7 +52,16 @@ export async function buildApp() {
   const app = Fastify({ logger: true });
   await app.register(cors, { origin: true });
 
-  app.get('/health', async () => ({ status: 'ok', version: '0.1.0' }));
+  app.get('/health', async () => {
+    const ctx = await getContext();
+    return {
+      status: 'ok',
+      version: '0.1.0',
+      catalogSource: ctx.catalogSource,
+      redis: Boolean(process.env.REDIS_URL),
+      database: Boolean(process.env.DATABASE_URL),
+    };
+  });
 
   app.post('/catalog/sync', async (_req, reply) => {
     if (!process.env.DATABASE_URL) {
@@ -73,6 +71,7 @@ export async function buildApp() {
       const { CatalogRepository } = await import('./repositories/catalog-repository.js');
       const repo = new CatalogRepository();
       const result = await repo.syncFromParser();
+      invalidateAppContext();
       return { ok: true, ...result };
     } catch (err) {
       return reply.status(500).send({ error: (err as Error).message });
@@ -84,6 +83,7 @@ export async function buildApp() {
     return {
       collections: ctx.collections,
       totalSkins: ctx.skins.length,
+      source: ctx.catalogSource,
     };
   });
 
