@@ -66,7 +66,6 @@ const ACTIVE_BAR = {
   stroke: 'rgba(148, 163, 184, 0.45)',
   strokeWidth: 1,
   fillOpacity: 0.92,
-  radius: [4, 4, 0, 0] as [number, number, number, number],
 };
 
 export function OpportunitiesChart({
