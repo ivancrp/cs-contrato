@@ -12,7 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR">
       <body className="min-h-screen bg-surface text-slate-100 antialiased">
         <header className="border-b border-surface-border bg-surface-card/80 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+          <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 2xl:max-w-[88rem] 2xl:px-8">
             <Link href="/" className="text-lg font-semibold text-accent">
               ⚡ CS Contrato
             </Link>
@@ -35,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </nav>
           </div>
         </header>
-        <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+        <main className="mx-auto w-full max-w-7xl px-4 py-8 2xl:max-w-[88rem] 2xl:px-8">{children}</main>
       </body>
     </html>
   );

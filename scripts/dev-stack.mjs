@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-function run(name: string, command: string, args: string[]) {
+function run(name, command, args) {
   const child = spawn(command, args, {
     cwd: root,
     stdio: 'inherit',

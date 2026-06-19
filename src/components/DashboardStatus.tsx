@@ -45,8 +45,8 @@ export function DashboardStatus() {
 
   if (loading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
             className="h-24 animate-pulse rounded-xl border border-surface-border bg-surface-card"
@@ -57,35 +57,34 @@ export function DashboardStatus() {
   }
 
   return (
-    <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="API"
-          value={online ? 'Online' : 'Offline'}
-          tone={online ? 'ok' : 'error'}
-          hint={online ? 'Backend Fastify ativo' : 'Verifique /api/backend/health'}
-        />
-        <StatCard label="Versão" value={health?.version ?? '—'} />
-        <StatCard
-          label="Catálogo"
-          value={catalog ? String(catalog.totalSkins) : '—'}
-          hint={catalog?.source}
-        />
-        <StatCard
-          label="Fonte dados"
-          value={health?.catalogSource ?? catalog?.source ?? '—'}
-        />
-      </div>
-
-      <div className="rounded-xl border border-surface-border bg-surface-card p-6">
-        <h2 className="font-semibold">Infraestrutura</h2>
-        <ul className="mt-4 space-y-2 text-sm text-slate-300">
-          <li>PostgreSQL: {health?.database ? '✓ configurado' : '○ não configurado'}</li>
-          <li>Redis: {health?.redis ? '✓ configurado' : '○ in-memory'}</li>
-          <li>Coleções: {catalog?.collections?.length ?? 0}</li>
-        </ul>
-      </div>
-    </>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <StatCard
+        label="API"
+        value={online ? 'Online' : 'Offline'}
+        tone={online ? 'ok' : 'error'}
+        hint={online ? 'Backend Fastify ativo' : 'Verifique /api/backend/health'}
+      />
+      <StatCard label="Versão" value={health?.version ?? '—'} />
+      <StatCard
+        label="Catálogo"
+        value={catalog ? String(catalog.totalSkins) : '—'}
+        hint={catalog?.source}
+      />
+      <StatCard
+        label="Fonte dados"
+        value={health?.catalogSource ?? catalog?.source ?? '—'}
+      />
+      <StatCard
+        label="PostgreSQL"
+        value={health?.database ? 'Configurado' : 'Não configurado'}
+        tone={health?.database ? 'ok' : 'default'}
+      />
+      <StatCard
+        label="Coleções"
+        value={String(catalog?.collections?.length ?? 0)}
+        hint={health?.redis ? 'Redis ativo' : 'Redis in-memory'}
+      />
+    </div>
   );
 }
 

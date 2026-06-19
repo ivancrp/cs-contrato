@@ -1,5 +1,5 @@
 import { analyzeScenarios, buildTradeUpContract, calculateEVMetrics } from '@ct/engine';
-import type { PriceAggregator } from '@ct/pricing';
+import { loadBulkSteamPricesBrl, type PriceAggregator } from '@ct/pricing';
 import type {
   Collection,
   ContractInput,
@@ -7,6 +7,15 @@ import type {
   SkinItem,
   TradeUpContract,
 } from '@ct/types';
+import { buildMarketHashName } from './trade-up-helpers.js';
+
+const USD_TO_BRL = Number(process.env.USD_TO_BRL ?? 5.5);
+
+function toBrl(price: number, currency: string): number {
+  if (currency === 'BRL') return price;
+  if (currency === 'USD') return Math.round(price * USD_TO_BRL * 100) / 100;
+  return price;
+}
 
 export async function buildContractWithMarketPrices(params: {
   inputs: ContractInput[];
@@ -21,11 +30,25 @@ export async function buildContractWithMarketPrices(params: {
   });
 
   const totalCost = params.inputs.reduce((sum, input) => sum + input.listing.price, 0);
+  const catalog = await loadBulkSteamPricesBrl();
 
   await Promise.all(
     contract.outputs.map(async (output) => {
+      const hash = buildMarketHashName(
+        output.item.name,
+        output.item.stattrak,
+        output.expectedWear,
+      );
+
+      const catalogPrice = catalog.get(hash);
+      if (catalogPrice && catalogPrice > 0) {
+        output.price = catalogPrice;
+        output.priceSource = 'bymykel';
+        return;
+      }
+
       const result = await params.priceAggregator.getPrice({
-        marketHashName: output.item.name,
+        marketHashName: hash,
         itemId: output.item.id,
         wear: output.expectedWear,
         float: output.expectedFloat,
@@ -33,7 +56,7 @@ export async function buildContractWithMarketPrices(params: {
       });
 
       if (result) {
-        output.price = result.quote.price;
+        output.price = toBrl(result.quote.price, result.quote.currency);
         output.priceSource = result.provider;
       }
     }),

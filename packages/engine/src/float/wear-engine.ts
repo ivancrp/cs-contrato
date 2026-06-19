@@ -27,6 +27,46 @@ export function wearToMaxFloat(wear: WearTier): number {
   return WEAR_BOUNDS[wear].max;
 }
 
+export function getWearTiersInRange(minFloat: number, maxFloat: number): WearTier[] {
+  const tiers = Object.keys(WEAR_BOUNDS) as WearTier[];
+  return tiers.filter((wear) => {
+    const bounds = WEAR_BOUNDS[wear];
+    return bounds.min <= maxFloat && bounds.max >= minFloat;
+  });
+}
+
+export function getWearTiersForSkin(skin: Pick<SkinItem, 'minFloat' | 'maxFloat'>): WearTier[] {
+  return getWearTiersInRange(skin.minFloat, skin.maxFloat);
+}
+
+export function isWearValidForSkin(
+  skin: Pick<SkinItem, 'minFloat' | 'maxFloat'>,
+  wear: WearTier,
+): boolean {
+  return getWearTiersForSkin(skin).includes(wear);
+}
+
+const WEAR_PRIORITY: WearTier[] = [
+  'Factory New',
+  'Minimal Wear',
+  'Field-Tested',
+  'Well-Worn',
+  'Battle-Scarred',
+];
+
+/** Melhor wear que a skin pode ter (prioriza FN). */
+export function defaultWearForSkin(skin: Pick<SkinItem, 'minFloat' | 'maxFloat'>): WearTier {
+  const valid = getWearTiersForSkin(skin);
+  return WEAR_PRIORITY.find((wear) => valid.includes(wear)) ?? floatToWear(skin.maxFloat);
+}
+
+export function resolveTargetMaxFloat(
+  skin: Pick<SkinItem, 'minFloat' | 'maxFloat'>,
+  wear: WearTier,
+): number {
+  return Math.min(wearToMaxFloat(wear), skin.maxFloat);
+}
+
 export function requiredNormalizedWear(targetOutputFloat: number, outputSkin: SkinItem): number {
   const range = outputSkin.maxFloat - outputSkin.minFloat;
   if (range <= 0) return 0;

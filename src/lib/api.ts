@@ -49,3 +49,44 @@ export async function fetchCatalogSummary() {
     collections: unknown[];
   }>;
 }
+
+export interface OpportunitySummary {
+  rank: number;
+  targetSkinName: string;
+  weapon: string;
+  roi: number;
+  expectedProfit: number;
+  referencePrice?: number;
+  referenceWear?: string;
+  referenceMarketHash?: string;
+  wearPrices?: { FN?: number; MW?: number; FT?: number; WW?: number; BS?: number };
+  estimatedCost?: number;
+  costInputSkin?: string;
+  costInputPrice?: number;
+  expectedValue?: number;
+  imageUrl?: string;
+  rarity?: string;
+  priceSource?: string;
+  priceSourceUrl?: string;
+  inspectLink?: string;
+}
+
+export async function fetchOpportunities(limit = 12): Promise<{
+  items: OpportunitySummary[];
+  scannedAt?: string;
+  source?: string;
+}> {
+  try {
+    const res = await fetch(resolveAppUrl(`${API_BASE}/opportunities?limit=${limit}`), {
+      cache: 'no-store',
+    });
+    if (!res.ok) return { items: [] };
+    return (await res.json()) as {
+      items: OpportunitySummary[];
+      scannedAt?: string;
+      source?: string;
+    };
+  } catch {
+    return { items: [] };
+  }
+}

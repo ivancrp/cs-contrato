@@ -31,11 +31,13 @@ async function loadFromPrisma(): Promise<LoadedCatalog | null> {
   }
 }
 
+const CATALOG_CACHE_KEY = 'catalog:v2';
+
 export async function loadCatalog(cache: CacheAdapter): Promise<LoadedCatalog> {
   const fromDb = await loadFromPrisma();
   if (fromDb) {
     await cache.set(
-      'catalog',
+      CATALOG_CACHE_KEY,
       { collections: fromDb.collections, skins: fromDb.skins },
       Number(process.env.CACHE_TTL_CATALOG ?? 86400),
     );
@@ -43,7 +45,7 @@ export async function loadCatalog(cache: CacheAdapter): Promise<LoadedCatalog> {
     return fromDb;
   }
 
-  const cached = await cache.get<{ collections: Collection[]; skins: SkinItem[] }>('catalog');
+  const cached = await cache.get<{ collections: Collection[]; skins: SkinItem[] }>(CATALOG_CACHE_KEY);
   const cachedCrates = await cache.get<Crate[]>('crates');
 
   if (cached?.collections?.length) {
@@ -57,7 +59,7 @@ export async function loadCatalog(cache: CacheAdapter): Promise<LoadedCatalog> {
 
   const catalog = await fetchCatalog();
   await cache.set(
-    'catalog',
+    CATALOG_CACHE_KEY,
     { collections: catalog.collections, skins: catalog.skins },
     Number(process.env.CACHE_TTL_CATALOG ?? 86400),
   );

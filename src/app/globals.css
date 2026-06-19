@@ -5,3 +5,38 @@
 body {
   background: radial-gradient(ellipse at top, #1a2332 0%, #0f1419 55%);
 }
+
+.chart-opportunities .recharts-bar-rectangle {
+  transition: filter 0.28s ease, opacity 0.28s ease;
+}
+
+.chart-opportunities .recharts-bar-rectangle:hover {
+  filter: brightness(1.1);
+}
+
+.chart-opportunities .recharts-tooltip-cursor {
+  transition: fill 0.28s ease-out, opacity 0.28s ease-out, x 0.22s ease-out, width 0.22s ease-out;
+}
+
+.chart-tooltip {
+  border-radius: 0.5rem;
+  border: 1px solid #2d3a4f;
+  background: rgba(26, 35, 50, 0.96);
+  padding: 0.625rem 0.75rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+  animation: chart-tooltip-in 0.28s ease-out forwards;
+}
+
+@keyframes chart-tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

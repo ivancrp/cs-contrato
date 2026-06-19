@@ -113,6 +113,23 @@ export async function buildApp() {
     return skin;
   });
 
+  app.get('/inspect', async (req, reply) => {
+    const query = req.query as { skinId?: string; wear?: string };
+    if (!query.skinId) return reply.status(400).send({ error: 'skinId é obrigatório' });
+
+    const ctx = await getContext();
+    const skin = ctx.skinsById.get(query.skinId);
+    if (!skin) return reply.status(404).send({ error: 'Skin não encontrada' });
+
+    const { generateInspectLinkForSkin } = await import('./services/inspect-link-service.js');
+    const wear = (query.wear as import('@ct/types').WearTier | undefined) ?? 'Field-Tested';
+    const link = generateInspectLinkForSkin(skin, wear);
+    if (!link) {
+      return reply.status(422).send({ error: 'Não foi possível gerar inspect para esta skin' });
+    }
+    return { inspectLink: link, source: 'preview_gen' };
+  });
+
   app.get('/boxes', async () => {
     const cache = (await getContext()).cache;
     const crates = await cache.get<unknown[]>('crates');
@@ -160,14 +177,14 @@ export async function buildApp() {
   app.get('/search', async (req) => {
     const query = req.query as { q: string; type?: string; limit?: string; stattrak?: string };
     const ctx = await getContext();
-    const limit = Math.min(Math.max(Number(query.limit ?? 12) || 12, 1), 100);
+    const limit = Math.min(Math.max(Number(query.limit ?? 50) || 50, 1), 100);
     const stattrak =
       query.stattrak === 'true' ? true : query.stattrak === 'false' ? false : undefined;
 
     const { searchSkins } = await import('./services/skin-search-service.js');
-    const results = searchSkins(ctx.skins, query.q ?? '', { stattrak, limit });
+    const { results, total } = searchSkins(ctx.skins, query.q ?? '', { stattrak, limit });
 
-    return { query: query.q, type: query.type ?? 'skin', results };
+    return { query: query.q, type: query.type ?? 'skin', results, total };
   });
 
   app.get('/prices', async (req, reply) => {

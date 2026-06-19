@@ -5,6 +5,9 @@ import {
   maxInputFloatForTargetOutput,
   normalizeFloat,
   requiredNormalizedWear,
+  defaultWearForSkin,
+  isWearValidForSkin,
+  resolveTargetMaxFloat,
   wearToMaxFloat,
   WEAR_BOUNDS,
 } from '@ct/engine';
@@ -12,6 +15,7 @@ import type {
   Collection,
   ContractInput,
   Marketplace,
+  MarketListing,
   SkinItem,
   WearTier,
 } from '@ct/types';
@@ -46,12 +50,14 @@ export function buildMarketHashName(name: string, stattrak: boolean, wear: WearT
   return `${prefix}${name} (${wear})`;
 }
 
-export function getWearTiersInRange(minFloat: number, maxFloat: number): WearTier[] {
-  const tiers = Object.keys(WEAR_BOUNDS) as WearTier[];
-  return tiers.filter((wear) => {
-    const bounds = WEAR_BOUNDS[wear];
-    return bounds.min <= maxFloat && bounds.max >= minFloat;
-  });
+export function resolveTargetWear(
+  targetSkin: SkinItem,
+  requestedWear: WearTier,
+): { wear: WearTier; autoAdjusted: boolean } {
+  if (isWearValidForSkin(targetSkin, requestedWear)) {
+    return { wear: requestedWear, autoAdjusted: false };
+  }
+  return { wear: defaultWearForSkin(targetSkin), autoAdjusted: true };
 }
 
 export function findCollectionsForTarget(
@@ -73,6 +79,19 @@ export function collectionHasTradeUpOutput(
       item.stattrak === stattrak &&
       !!item.souvenir === souvenir,
   );
+}
+
+export function splitInputSkinsByTargetCollection(
+  targetSkin: SkinItem,
+  inputSkins: SkinItem[],
+  collections: Collection[],
+): { targetSkins: SkinItem[]; fillerSkins: SkinItem[] } {
+  const targetCollectionIds = new Set(
+    findCollectionsForTarget(targetSkin, collections).map((c) => c.id),
+  );
+  const targetSkins = inputSkins.filter((s) => targetCollectionIds.has(s.collectionId));
+  const fillerSkins = inputSkins.filter((s) => !targetCollectionIds.has(s.collectionId));
+  return { targetSkins, fillerSkins };
 }
 
 export function findInputCandidates(
@@ -130,19 +149,50 @@ export function resolveTargetSkin(
 
 export function estimateAutoBudget(candidates: SearchCandidate[]): number {
   if (candidates.length === 0) return 500;
+
   const sorted = [...candidates].sort((a, b) => a.price - b.price);
-  const floor = sorted.slice(0, 10).reduce((sum, c) => sum + c.price, 0);
-  return Math.ceil(floor * 2.6) || 500;
+  const naiveFloor = sorted.slice(0, 10).reduce((sum, candidate) => sum + candidate.price, 0);
+
+  const targetSorted = sorted.filter((candidate) => candidate.isTargetCollection);
+  const fillerSorted = sorted.filter((candidate) => !candidate.isTargetCollection);
+
+  if (targetSorted.length === 0) {
+    return Math.ceil(naiveFloor * 2.6) || 500;
+  }
+
+  const targetPart = targetSorted.slice(0, 1).reduce((sum, candidate) => sum + candidate.price, 0);
+  const fillerPart = fillerSorted.slice(0, 9).reduce((sum, candidate) => sum + candidate.price, 0);
+  const constrainedFloor = targetPart + fillerPart;
+
+  return Math.ceil(Math.max(naiveFloor * 2.6, constrainedFloor * 1.35)) || 500;
 }
 
 export function resolveSearchParams(
   params: TradeUpSearchParams,
-  candidates?: SearchCandidate[],
-): TradeUpSearchParams & { maxFloat: number; budget: number } {
+  options?: { candidates?: SearchCandidate[]; targetSkin?: SkinItem },
+): TradeUpSearchParams & {
+  maxFloat: number;
+  budget: number;
+  wear: WearTier;
+  wearAutoAdjusted: boolean;
+} {
+  const targetSkin = options?.targetSkin;
+  const { wear, autoAdjusted } = targetSkin
+    ? resolveTargetWear(targetSkin, params.wear)
+    : { wear: params.wear, autoAdjusted: false };
+
+  const maxFloat =
+    params.maxFloat ??
+    (targetSkin ? resolveTargetMaxFloat(targetSkin, wear) : wearToMaxFloat(wear));
+
   return {
     ...params,
-    maxFloat: params.maxFloat ?? wearToMaxFloat(params.wear),
-    budget: params.budget ?? (candidates ? estimateAutoBudget(candidates) : 500),
+    wear,
+    maxFloat,
+    wearAutoAdjusted: autoAdjusted,
+    budget:
+      params.budget ??
+      (options?.candidates ? estimateAutoBudget(options.candidates) : 500),
   };
 }
 
@@ -176,6 +226,45 @@ export function computeFloorCost(candidates: SearchCandidate[]): number {
 
 export function buildIdealNorm(targetSkin: SkinItem, maxFloat: number): number {
   return requiredNormalizedWear(maxFloat, targetSkin);
+}
+
+/** Float representativo no meio da faixa de wear compatível com o trade up. */
+export function representativeFloatForWear(
+  item: SkinItem,
+  maxAllowed: number,
+  wear: WearTier,
+): number {
+  const bounds = WEAR_BOUNDS[wear];
+  const min = Math.max(bounds.min, item.minFloat);
+  const max = Math.min(bounds.max, maxAllowed, item.maxFloat);
+  if (min >= max) return Math.round(min * 10000) / 10000;
+  return Math.round(((min + max) / 2) * 10000) / 10000;
+}
+
+export function steamMarketListingUrl(marketHashName: string): string {
+  return `https://steamcommunity.com/market/listings/730/${encodeURIComponent(marketHashName)}`;
+}
+
+export function buildCatalogListing(
+  item: SkinItem,
+  wear: WearTier,
+  price: number,
+  maxAllowed: number,
+): MarketListing {
+  const hash = buildMarketHashName(item.name, item.stattrak, wear);
+  const floatValue = representativeFloatForWear(item, maxAllowed, wear);
+  return {
+    id: `catalog-${item.id}-${wear.replace(/\s+/g, '-')}`,
+    itemId: item.id,
+    marketHashName: hash,
+    marketplace: 'bymykel',
+    price,
+    currency: 'BRL',
+    float: floatValue,
+    wear,
+    stattrak: item.stattrak,
+    purchaseUrl: steamMarketListingUrl(hash),
+  };
 }
 
 export function toSearchCandidate(

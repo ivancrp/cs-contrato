@@ -5,11 +5,12 @@ import {
   buildCheapCandidatePool,
   buildFloatFocusedPool,
   buildTargetHeavyPool,
+  computeConstrainedFloorCost,
   computeFloorCost,
   hasTargetCollectionCandidates,
   isFeasibleContract,
 } from './candidate-pool.js';
-import { runOptimization } from './run-optimization.js';
+import { runOptimization, runOptimizationWithTargetMinimum } from './run-optimization.js';
 import type { CandidateListing, OptimizationContext } from './scoring.js';
 import {
   MIN_LOSS_TIER,
@@ -150,8 +151,10 @@ function optimizeSingleTier(
   }
 
   const budget = Math.ceil(baseBudget * resolved.budgetMultiplier);
-  const floorCost = computeFloorCost(tierCandidates);
-  const requiresTarget = hasTargetCollectionCandidates(tierCandidates);
+  const requiresTarget = hasTargetCollectionCandidates(allCandidates);
+  const floorCost = requiresTarget
+    ? computeConstrainedFloorCost(tierCandidates, INPUT_COUNT, resolved.minTargetCount)
+    : computeFloorCost(tierCandidates);
 
   const context: OptimizationContext = {
     ...baseContext,
@@ -160,11 +163,13 @@ function optimizeSingleTier(
     budget,
   };
 
-  const result = runOptimization(context);
+  const result = requiresTarget
+    ? runOptimizationWithTargetMinimum(context, resolved.minTargetCount)
+    : runOptimization(context);
   if (
     !isValidResult(
       result,
-      tierCandidates,
+      allCandidates,
       resolved,
       budget,
       floorCost,

@@ -6,14 +6,17 @@ export {
   type CandidateListing,
 } from './scoring.js';
 
-export { runOptimization, selectAlgorithm, createEvaluationContext } from './run-optimization.js';
+export { runOptimization, runOptimizationWithTargetMinimum, selectAlgorithm, createEvaluationContext } from './run-optimization.js';
 
 export { optimizeAllTiers, type TierOptimizationResult } from './optimize-tiers.js';
 export { TIER_CONFIGS, MIN_LOSS_TIER, scoreToStars } from './tier-configs.js';
 export {
   buildCheapCandidatePool,
   buildBalancedCandidatePool,
+  computeConstrainedFloorCost,
   computeFloorCost,
+  hasTargetCollectionCandidates,
+  isFeasibleContract,
 } from './candidate-pool.js';
 
 export function optimize(context: import('./scoring.js').OptimizationContext) {

@@ -51,6 +51,8 @@ export interface SkinItem {
   id: string;
   name: string;
   weapon: string;
+  /** Def index da arma (Steam), ex.: AK-47 = 7 */
+  weaponDefIndex?: number;
   collectionId: string;
   rarity: Rarity;
   minFloat: number;

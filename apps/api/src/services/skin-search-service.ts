@@ -1,7 +1,42 @@
 import type { SkinItem } from '@ct/types';
 
+export interface SearchSkinsResult {
+  results: SkinItem[];
+  total: number;
+}
+
 function normalizeQuery(q: string): string {
   return q.toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+function normalizeToken(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function matchesWeaponQuery(weapon: string, query: string): boolean {
+  const normalizedQuery = normalizeToken(query);
+  if (!normalizedQuery) return false;
+
+  const normalizedWeapon = normalizeToken(weapon);
+  return (
+    normalizedWeapon === normalizedQuery ||
+    normalizedWeapon.startsWith(normalizedQuery) ||
+    normalizedQuery.startsWith(normalizedWeapon)
+  );
+}
+
+function dedupeSkins(skins: SkinItem[]): SkinItem[] {
+  const seen = new Set<string>();
+  const unique: SkinItem[] = [];
+
+  for (const skin of skins) {
+    const key = `${skin.name}|${skin.stattrak}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(skin);
+  }
+
+  return unique;
 }
 
 function scoreSkin(skin: SkinItem, q: string): number {
@@ -25,33 +60,46 @@ export function searchSkins(
   skins: SkinItem[],
   query: string,
   options: { stattrak?: boolean; limit?: number } = {},
-): SkinItem[] {
+): SearchSkinsResult {
   const q = normalizeQuery(query);
-  if (q.length < 2) return [];
+  if (q.length < 2) return { results: [], total: 0 };
 
-  const limit = Math.min(Math.max(options.limit ?? 12, 1), 100);
+  const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
   let pool = skins;
 
   if (options.stattrak !== undefined) {
     pool = pool.filter((skin) => skin.stattrak === options.stattrak);
   }
 
-  const seen = new Set<string>();
+  const weaponMatches = dedupeSkins(
+    pool
+      .filter((skin) => matchesWeaponQuery(skin.weapon, q))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  );
+
+  if (!q.includes('|') && weaponMatches.length > 0) {
+    return {
+      results: weaponMatches.slice(0, limit),
+      total: weaponMatches.length,
+    };
+  }
+
   const ranked: Array<{ skin: SkinItem; score: number }> = [];
 
   for (const skin of pool) {
     const score = scoreSkin(skin, q);
     if (score <= 0) continue;
-
-    const dedupeKey = `${skin.name}|${skin.stattrak}`;
-    if (seen.has(dedupeKey)) continue;
-    seen.add(dedupeKey);
-
     ranked.push({ skin, score });
   }
 
-  return ranked
-    .sort((a, b) => b.score - a.score || a.skin.name.localeCompare(b.skin.name))
-    .slice(0, limit)
-    .map((entry) => entry.skin);
+  const sorted = dedupeSkins(
+    ranked
+      .sort((a, b) => b.score - a.score || a.skin.name.localeCompare(b.skin.name))
+      .map((entry) => entry.skin),
+  );
+
+  return {
+    results: sorted.slice(0, limit),
+    total: sorted.length,
+  };
 }

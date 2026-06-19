@@ -1,26 +1,28 @@
 import { defaultRuleRegistry } from '@ct/contracts';
-import { buildTradeUpContract } from '@ct/engine';
+import { buildTradeUpContract, floatToWear, getWearTiersForSkin, getWearTiersInRange } from '@ct/engine';
 import { optimizeAllTiers, scoreToStars } from '@ct/optimizer';
 import type { CandidateListing } from '@ct/optimizer';
-import { fetchCsfloatListings, createDefaultPriceAggregator } from '@ct/pricing';
+import { fetchCsfloatListings, loadBulkSteamPricesBrl, createDefaultPriceAggregator } from '@ct/pricing';
 import type { CacheAdapter } from '@ct/common';
 import type {
   Collection,
   SkinItem,
   TradeUpContract,
+  WearTier,
 } from '@ct/types';
 import { buildContractWithMarketPrices } from './contract-service.js';
 import type { AppContext } from '../app-context.js';
 import {
   buildIdealNorm,
+  buildCatalogListing,
   buildMarketHashName,
   candidateToContractInput,
   estimateAutoBudget,
   findCollectionsForTarget,
   findInputCandidates,
-  getWearTiersInRange,
   resolveSearchParams,
   resolveTargetSkin,
+  splitInputSkinsByTargetCollection,
   toSearchCandidate,
   type SearchCandidate,
   type TradeUpSearchParams,
@@ -32,7 +34,11 @@ const MARKET_BATCH = 6;
 
 export interface TradeUpSearchResponse {
   targetSkin: SkinItem;
+  wear: WearTier;
+  wearAutoAdjusted: boolean;
+  validWears: WearTier[];
   collections: string[];
+  collectionLabels: Record<string, string>;
   contracts: EnrichedContract[];
   candidates: SearchCandidate[];
   marketAvailability: {
@@ -40,6 +46,7 @@ export interface TradeUpSearchResponse {
     listingsFound: number;
     skinsWithListings: number;
     liveListings: number;
+    priceSource: 'live' | 'catalog';
   };
 }
 
@@ -50,13 +57,43 @@ export interface EnrichedContract extends TradeUpContract {
   aiScore: number;
 }
 
-function trimPool(candidates: SearchCandidate[]): SearchCandidate[] {
-  if (candidates.length <= MAX_POOL_SIZE) return candidates;
+function mergeCandidates(...pools: SearchCandidate[][]): SearchCandidate[] {
+  const map = new Map<string, SearchCandidate>();
+  for (const pool of pools) {
+    for (const candidate of pool) {
+      const key = `${candidate.itemId}:${candidate.float.toFixed(4)}`;
+      const existing = map.get(key);
+      if (!existing || candidate.marketplace === 'csfloat') {
+        map.set(key, candidate);
+      }
+    }
+  }
+  return [...map.values()];
+}
+
+function trimPoolPreservingTarget(candidates: SearchCandidate[]): SearchCandidate[] {
   const targetPool = candidates.filter((c) => c.isTargetCollection);
   const others = candidates
     .filter((c) => !c.isTargetCollection)
-    .sort((a, b) => a.price - b.price);
-  return [...targetPool, ...others].slice(0, MAX_POOL_SIZE);
+    .sort((a, b) => {
+      const priceDiff = a.price - b.price;
+      if (Math.abs(priceDiff) > 1) return priceDiff;
+      return a.floatFitScore - b.floatFitScore;
+    });
+
+  if (candidates.length <= MAX_POOL_SIZE) {
+    return [...targetPool, ...others].sort((a, b) => {
+      if (a.isTargetCollection !== b.isTargetCollection) return a.isTargetCollection ? -1 : 1;
+      return a.price - b.price;
+    });
+  }
+
+  const fillerLimit = Math.max(0, MAX_POOL_SIZE - targetPool.length);
+  return [...targetPool, ...others.slice(0, fillerLimit)];
+}
+
+function trimPool(candidates: SearchCandidate[]): SearchCandidate[] {
+  return trimPoolPreservingTarget(candidates);
 }
 
 function selectPool(candidates: SearchCandidate[]): SearchCandidate[] {
@@ -87,29 +124,21 @@ function contractSignature(contract: TradeUpContract): string {
     .join('|');
 }
 
-async function buildCandidatePool(
-  targetSkin: SkinItem,
+async function fetchLiveListings(
+  inputSkins: SkinItem[],
   params: TradeUpSearchParams & { maxFloat: number },
-  collections: Collection[],
+  idealNorm: number,
+  targetCollectionIds: Set<string>,
 ): Promise<SearchCandidate[]> {
-  const inputSkins = findInputCandidates(targetSkin, params.maxFloat, collections);
-  const targetCollectionIds = new Set(
-    findCollectionsForTarget(targetSkin, collections).map((c) => c.id),
-  );
-  const idealNorm = buildIdealNorm(targetSkin, params.maxFloat);
   const listings: SearchCandidate[] = [];
   const seen = new Set<string>();
-
   const skinsToQuery = inputSkins.slice(0, MAX_SKINS_TO_QUERY);
 
   for (let i = 0; i < skinsToQuery.length; i += MARKET_BATCH) {
     const batch = skinsToQuery.slice(i, i + MARKET_BATCH);
     await Promise.all(
       batch.map(async (item) => {
-        const maxAllowed = Math.min(
-          item.maxFloat,
-          params.maxFloat,
-        );
+        const maxAllowed = Math.min(item.maxFloat, params.maxFloat);
         const wears = getWearTiersInRange(item.minFloat, maxAllowed);
 
         for (const wear of wears) {
@@ -144,19 +173,141 @@ async function buildCandidatePool(
     );
   }
 
-  if (listings.length === 0) {
+  return listings;
+}
+
+async function buildCatalogCandidates(
+  inputSkins: SkinItem[],
+  params: TradeUpSearchParams & { maxFloat: number },
+  idealNorm: number,
+  targetCollectionIds: Set<string>,
+): Promise<SearchCandidate[]> {
+  const priceMap = await loadBulkSteamPricesBrl();
+  const listings: SearchCandidate[] = [];
+  const seen = new Set<string>();
+
+  for (const item of inputSkins.slice(0, MAX_SKINS_TO_QUERY)) {
+    const maxAllowed = Math.min(item.maxFloat, params.maxFloat);
+    const wears = getWearTiersInRange(item.minFloat, maxAllowed);
+
+    for (const wear of wears) {
+      const hash = buildMarketHashName(item.name, item.stattrak, wear);
+      const price = priceMap.get(hash);
+      if (!price || price <= 0) continue;
+
+      const key = `${item.id}-${wear}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      listings.push(
+        toSearchCandidate(
+          buildCatalogListing(item, wear, price, maxAllowed),
+          item,
+          idealNorm,
+          targetCollectionIds.has(item.collectionId),
+        ),
+      );
+    }
+  }
+
+  return listings;
+}
+
+async function buildCandidatePool(
+  targetSkin: SkinItem,
+  params: TradeUpSearchParams & { maxFloat: number },
+  collections: Collection[],
+): Promise<{ candidates: SearchCandidate[]; priceSource: 'live' | 'catalog' }> {
+  const inputSkins = findInputCandidates(targetSkin, params.maxFloat, collections);
+  if (inputSkins.length === 0) {
     throw new Error(
-      'Nenhuma skin de entrada disponível no mercado com float compatível. Tente outro wear ou marketplace.',
+      'Nenhuma skin de entrada compatível encontrada no catálogo para esta skin alvo.',
     );
   }
 
-  return trimPool(
-    listings.sort((a, b) => {
-      const priceDiff = a.price - b.price;
-      if (Math.abs(priceDiff) > 1) return priceDiff;
-      return a.floatFitScore - b.floatFitScore;
-    }),
+  const targetCollectionIds = new Set(
+    findCollectionsForTarget(targetSkin, collections).map((c) => c.id),
   );
+  const { targetSkins, fillerSkins } = splitInputSkinsByTargetCollection(
+    targetSkin,
+    inputSkins,
+    collections,
+  );
+
+  if (targetSkins.length === 0) {
+    throw new Error(
+      'Não há skins de entrada da coleção da skin alvo disponíveis no catálogo.',
+    );
+  }
+
+  const idealNorm = buildIdealNorm(targetSkin, params.maxFloat);
+  const fillerQueryLimit = Math.max(0, MAX_SKINS_TO_QUERY - targetSkins.length);
+  const fillerQuery = fillerSkins.slice(0, fillerQueryLimit);
+  const skinsToQuery = [...targetSkins, ...fillerQuery];
+
+  const useLiveMarket =
+    params.marketplace === 'csfloat' && Boolean(process.env.CSFLOAT_API_KEY);
+
+  let listings: SearchCandidate[] = [];
+  let priceSource: 'live' | 'catalog' = 'catalog';
+
+  const targetCatalog = await buildCatalogCandidates(
+    targetSkins,
+    params,
+    idealNorm,
+    targetCollectionIds,
+  );
+  listings = mergeCandidates(targetCatalog);
+
+  if (useLiveMarket) {
+    const live = await fetchLiveListings(
+      skinsToQuery,
+      params,
+      idealNorm,
+      targetCollectionIds,
+    );
+    listings = mergeCandidates(listings, live);
+    if (live.length > 0) priceSource = 'live';
+
+    const fillerCatalog = await buildCatalogCandidates(
+      fillerQuery,
+      params,
+      idealNorm,
+      targetCollectionIds,
+    );
+    listings = mergeCandidates(listings, fillerCatalog);
+  } else {
+    listings = mergeCandidates(
+      listings,
+      await buildCatalogCandidates(fillerQuery, params, idealNorm, targetCollectionIds),
+    );
+  }
+
+  if (!listings.some((c) => c.isTargetCollection)) {
+    const targetColName =
+      collections.find((c) => targetCollectionIds.has(c.id))?.name ?? 'da skin alvo';
+    throw new Error(
+      `Não há preços/listings para skins da coleção ${targetColName}. Tente outro wear ou marketplace.`,
+    );
+  }
+
+  if (listings.length === 0) {
+    throw new Error(
+      'Nenhuma skin de entrada com preço disponível. Tente outro wear ou StatTrak.',
+    );
+  }
+
+  return {
+    candidates: trimPoolPreservingTarget(
+      listings.sort((a, b) => {
+        if (a.isTargetCollection !== b.isTargetCollection) return a.isTargetCollection ? -1 : 1;
+        const priceDiff = a.price - b.price;
+        if (Math.abs(priceDiff) > 1) return priceDiff;
+        return a.floatFitScore - b.floatFitScore;
+      }),
+    ),
+    priceSource,
+  };
 }
 
 async function buildContractsFromTiers(
@@ -196,15 +347,27 @@ export async function searchTradeUpContracts(
   params: TradeUpSearchParams,
 ): Promise<TradeUpSearchResponse> {
   const targetSkin = resolveTargetSkin(params, ctx.skins);
-  const draft = resolveSearchParams(params);
-  const candidates = await buildCandidatePool(
+  const draft = resolveSearchParams(params, { targetSkin });
+  const { candidates, priceSource } = await buildCandidatePool(
     targetSkin,
     draft,
     ctx.collections,
   );
-  const resolved = resolveSearchParams(params, candidates);
+  const resolved = resolveSearchParams(params, { targetSkin, candidates });
   const budget = resolved.budget || estimateAutoBudget(candidates);
   const rule = defaultRuleRegistry.getOrThrow('cs2_weapon_10');
+  const priceMap = await loadBulkSteamPricesBrl();
+
+  const catalogPriceLookup = (itemId: string, expectedFloat: number): number => {
+    const skin = ctx.skinsById.get(itemId);
+    if (!skin) return 0;
+    const wear = floatToWear(expectedFloat);
+    const hash = buildMarketHashName(skin.name, skin.stattrak, wear);
+    const direct = priceMap.get(hash);
+    if (direct && direct > 0) return direct;
+    const ftHash = buildMarketHashName(skin.name, skin.stattrak, 'Field-Tested');
+    return priceMap.get(ftHash) ?? 0;
+  };
 
   const optimizerCandidates = toOptimizerCandidates(
     selectPool(candidates),
@@ -224,7 +387,7 @@ export async function searchTradeUpContracts(
             targetSkin,
             rule,
             collections: ctx.collections,
-            priceLookup: () => 10,
+            priceLookup: catalogPriceLookup,
           }).outputs;
         } catch {
           return [];
@@ -239,12 +402,43 @@ export async function searchTradeUpContracts(
     },
   );
 
-  if (tierResults.length === 0) {
+  let finalTierResults = tierResults;
+  if (finalTierResults.length === 0) {
+    finalTierResults = optimizeAllTiers(
+      {
+        candidates: optimizerCandidates,
+        inputCount: rule.inputCount,
+        targetSkinId: targetSkin.id,
+        strategy: 'max_ev',
+        outputsForSelection: (inputs) => {
+          try {
+            return buildTradeUpContract({
+              inputs,
+              targetSkin,
+              rule,
+              collections: ctx.collections,
+              priceLookup: catalogPriceLookup,
+            }).outputs;
+          } catch {
+            return [];
+          }
+        },
+      },
+      {
+        targetSkin,
+        collections: ctx.collections,
+        baseBudget: Math.ceil(budget * 1.8),
+        includeMinLoss: true,
+      },
+    );
+  }
+
+  if (finalTierResults.length === 0) {
     throw new Error('Não foi possível gerar contratos válidos para esta skin alvo');
   }
 
   const contracts = await buildContractsFromTiers(
-    tierResults,
+    finalTierResults,
     targetSkin,
     ctx.collections,
     ctx.cache,
@@ -258,23 +452,34 @@ export async function searchTradeUpContracts(
     return true;
   });
 
-  if (uniqueContracts.length === 0) {
-    throw new Error('Não foi possível gerar contratos válidos para esta skin alvo');
+  const viableContracts = uniqueContracts.filter(
+    (contract) => contract.evMetrics.targetChance > 0,
+  );
+
+  if (viableContracts.length === 0) {
+    throw new Error(
+      'Nenhum contrato com chance de obter a skin alvo. Verifique se há inputs da coleção correta disponíveis.',
+    );
   }
 
   const skinIds = new Set(candidates.map((c) => c.itemId));
-  const liveListings = candidates.filter((c) => Boolean(c.purchaseUrl)).length;
+  const liveListings = candidates.filter((c) => c.marketplace === 'csfloat').length;
 
   return {
     targetSkin,
-    collections: [...new Set(uniqueContracts.flatMap((c) => c.collectionsUsed))],
-    contracts: uniqueContracts,
+    wear: resolved.wear,
+    wearAutoAdjusted: resolved.wearAutoAdjusted,
+    validWears: getWearTiersForSkin(targetSkin),
+    collections: [...new Set(viableContracts.flatMap((c) => c.collectionsUsed))],
+    collectionLabels: Object.fromEntries(ctx.collections.map((c) => [c.id, c.name])),
+    contracts: viableContracts,
     candidates,
     marketAvailability: {
       marketplace: params.marketplace,
       listingsFound: candidates.length,
       skinsWithListings: skinIds.size,
       liveListings,
+      priceSource,
     },
   };
 }

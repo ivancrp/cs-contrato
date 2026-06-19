@@ -16,6 +16,8 @@ export interface SkinHit {
   imageUrl?: string;
   stattrak: boolean;
   collectionId: string;
+  minFloat: number;
+  maxFloat: number;
 }
 
 const RARITY_LABEL: Record<Rarity, string> = {
@@ -47,6 +49,7 @@ export function SkinAutocomplete({
 }) {
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<SkinHit[]>([]);
+  const [totalResults, setTotalResults] = useState(0);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -74,11 +77,13 @@ export function SkinAutocomplete({
 
     if (!open || trimmed.length < MIN_QUERY_LENGTH) {
       setResults([]);
+      setTotalResults(0);
       setLoading(false);
       return;
     }
 
     setResults([]);
+    setTotalResults(0);
     setLoading(true);
 
     const controller = new AbortController();
@@ -87,7 +92,7 @@ export function SkinAutocomplete({
       try {
         const params = new URLSearchParams({
           q: querySnapshot,
-          limit: '12',
+          limit: '100',
           stattrak: String(stattrak),
         });
         const res = await fetch(`${API_BASE}/search?${params}`, {
@@ -99,11 +104,12 @@ export function SkinAutocomplete({
           return;
         }
 
-        const data = (await res.json()) as { results: SkinHit[] };
+        const data = (await res.json()) as { results: SkinHit[]; total?: number };
 
         if (activeQueryRef.current !== querySnapshot) return;
 
         setResults(data.results);
+        setTotalResults(data.total ?? data.results.length);
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
         if (activeQueryRef.current === querySnapshot) setResults([]);
@@ -123,6 +129,7 @@ export function SkinAutocomplete({
     activeQueryRef.current = skin.name;
     setOpen(false);
     setResults([]);
+    setTotalResults(0);
     setLoading(false);
     onSelect?.(skin);
     onChange(skin.name);
@@ -165,7 +172,7 @@ export function SkinAutocomplete({
       {showDropdown && (
         <ul
           role="listbox"
-          className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-surface-border bg-surface-card shadow-xl"
+          className="absolute z-30 mt-1 max-h-96 w-full overflow-auto rounded-lg border border-surface-border bg-surface-card shadow-xl"
         >
           {loading && (
             <li className="px-3 py-2 text-sm text-slate-500">Buscando…</li>
@@ -210,6 +217,11 @@ export function SkinAutocomplete({
                 </button>
               </li>
             ))}
+          {!loading && totalResults > results.length && (
+            <li className="border-t border-surface-border/60 px-3 py-2 text-xs text-slate-500">
+              Mostrando {results.length} de {totalResults} skins — refine a busca para ver menos
+            </li>
+          )}
         </ul>
       )}
 

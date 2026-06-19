@@ -7,7 +7,7 @@ const CSGO_API_BASE =
 interface ApiSkin {
   id: string;
   name: string;
-  weapon?: { name: string };
+  weapon?: { name: string; weapon_id?: number };
   collections?: { id: string; name: string }[];
   rarity?: { name: string; color?: string };
   min_float?: number;
@@ -69,12 +69,13 @@ export function parseSkin(raw: ApiSkin): SkinItem | null {
     id: raw.id,
     name: raw.name,
     weapon: raw.weapon?.name ?? 'Unknown',
+    weaponDefIndex: raw.weapon?.weapon_id,
     collectionId: collection.id,
     rarity: mapRarity(raw.rarity?.name),
     minFloat: raw.min_float ?? 0,
     maxFloat: raw.max_float ?? 1,
-    stattrak: raw.stattrak ?? false,
-    souvenir: raw.souvenir ?? false,
+    stattrak: false,
+    souvenir: false,
     imageUrl: raw.image,
     paintIndex: raw.paint_index,
     finishCatalog: raw.pattern?.id,
@@ -133,14 +134,19 @@ export async function fetchCatalog(): Promise<{
   const skins = rawSkins.map(parseSkin).filter((s): s is SkinItem => s !== null);
 
   const collectionMap = new Map<string, Collection>();
-  for (const skin of skins) {
-    const existing = collectionMap.get(skin.collectionId);
+  for (const raw of rawSkins) {
+    const skin = parseSkin(raw);
+    if (!skin) continue;
+    const colMeta = raw.collections?.[0];
+    if (!colMeta) continue;
+
+    const existing = collectionMap.get(colMeta.id);
     if (existing) {
       existing.items.push(skin);
     } else {
-      collectionMap.set(skin.collectionId, {
-        id: skin.collectionId,
-        name: skin.collectionId,
+      collectionMap.set(colMeta.id, {
+        id: colMeta.id,
+        name: colMeta.name,
         items: [skin],
       });
     }

@@ -8,6 +8,32 @@ export function computeFloorCost(candidates: CandidateListing[]): number {
   return pick.reduce((sum, candidate) => sum + candidate.listing.price, 0);
 }
 
+/** Custo mínimo realista quando o contrato exige skins da coleção alvo. */
+export function computeConstrainedFloorCost(
+  candidates: CandidateListing[],
+  inputCount: number,
+  minTargetCount: number,
+): number {
+  if (minTargetCount <= 0) {
+    return computeFloorCost(candidates);
+  }
+
+  const targetPool = extractTargetCollectionPool(candidates);
+  const fillerPool = candidates
+    .filter((candidate) => !candidate.isTargetCollection)
+    .sort((a, b) => a.listing.price - b.listing.price);
+
+  const fillerSlots = Math.max(0, inputCount - minTargetCount);
+  const targetPart = targetPool
+    .slice(0, minTargetCount)
+    .reduce((sum, candidate) => sum + candidate.listing.price, 0);
+  const fillerPart = fillerPool
+    .slice(0, Math.min(fillerSlots, fillerPool.length))
+    .reduce((sum, candidate) => sum + candidate.listing.price, 0);
+
+  return targetPart + fillerPart;
+}
+
 export function computePriceCap(candidates: CandidateListing[]): number {
   const sorted = [...candidates].sort((a, b) => a.listing.price - b.listing.price);
   if (sorted.length === 0) return 50;

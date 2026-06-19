@@ -5,26 +5,10 @@ import { API_BASE } from '@/lib/api';
 import { OpportunitiesChart } from '@/components/OpportunitiesChart';
 import { OpportunityImageGrid, OpportunityTable } from '@/components/OpportunityList';
 import { ScanOpportunitiesButton } from '@/components/ScanOpportunitiesButton';
-import type { Rarity } from '@ct/types';
-
-interface Opportunity {
-  rank: number;
-  targetSkinName: string;
-  weapon: string;
-  roi: number;
-  expectedProfit: number;
-  referencePrice?: number;
-  estimatedCost?: number;
-  expectedValue?: number;
-  totalCost: number;
-  targetChance: number;
-  tier: string;
-  imageUrl?: string;
-  rarity?: Rarity;
-}
+import type { OpportunityListItem } from '@/components/OpportunityList';
 
 export default function OpportunitiesPage() {
-  const [data, setData] = useState<{ items: Opportunity[]; scannedAt?: string }>({
+  const [data, setData] = useState<{ items: OpportunityListItem[]; scannedAt?: string }>({
     items: [],
   });
   const [loading, setLoading] = useState(true);
@@ -32,7 +16,7 @@ export default function OpportunitiesPage() {
   useEffect(() => {
     fetch(`${API_BASE}/opportunities?limit=100`)
       .then((res) => (res.ok ? res.json() : { items: [] }))
-      .then((json: { items: Opportunity[]; scannedAt?: string }) => setData(json))
+      .then((json: { items: OpportunityListItem[]; scannedAt?: string }) => setData(json))
       .finally(() => setLoading(false));
   }, []);
 
@@ -62,7 +46,7 @@ export default function OpportunitiesPage() {
             roi: i.roi,
             expectedProfit: i.expectedProfit,
             referencePrice: i.referencePrice,
-            estimatedCost: i.estimatedCost ?? i.totalCost,
+            estimatedCost: i.estimatedCost,
             expectedValue: i.expectedValue,
           }))}
         />
