@@ -19,6 +19,18 @@ export interface TierOptimizationConfig {
 
 export const TIER_CONFIGS: TierOptimizationConfig[] = [
   {
+    tierId: 'wear_target',
+    label: '◎ Wear alvo (float ideal)',
+    strategy: 'min_loss',
+    budgetMultiplier: 1.75,
+    targetRatio: 0.2,
+    minTargetCount: 1,
+    maxTargetCount: 6,
+    poolType: 'float',
+    maxCostMultiplier: 2.1,
+    minEvRatio: 0.28,
+  },
+  {
     tierId: 'budget',
     label: '$ Menor custo',
     strategy: 'min_loss',

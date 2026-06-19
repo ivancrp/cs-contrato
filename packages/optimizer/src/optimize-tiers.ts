@@ -1,4 +1,4 @@
-import { planInputsForTargetChance } from '@ct/engine';
+import { planInputsForTargetChance, calculateOutputFloat, calculateAverageNormalizedFloat } from '@ct/engine';
 import type { Collection, ContractInput, SkinItem } from '@ct/types';
 import {
   buildBalancedCandidatePool,
@@ -100,6 +100,8 @@ function isValidResult(
   floorCost: number,
   requiresTargetCollection: boolean,
   outputsForSelection: OptimizationContext['outputsForSelection'],
+  targetSkin?: SkinItem,
+  targetMaxOutputFloat?: number,
 ): boolean {
   if (!result.inputs.length || !Number.isFinite(result.score)) return false;
   if (result.inputs.length !== INPUT_COUNT) return false;
@@ -108,14 +110,18 @@ function isValidResult(
   const outputs = outputsForSelection(result.inputs);
   if (outputs.length === 0) return false;
 
+  const wearLocked = targetMaxOutputFloat !== undefined;
+  const minEvRatio = wearLocked ? config.minEvRatio * 0.72 : config.minEvRatio;
+  const maxCostMultiplier = wearLocked ? config.maxCostMultiplier * 1.2 : config.maxCostMultiplier;
+
   if (
     !isFeasibleContract(
       outputs,
       totalCost,
       budget,
       floorCost,
-      config.maxCostMultiplier,
-      config.minEvRatio,
+      maxCostMultiplier,
+      minEvRatio,
     )
   ) {
     return false;
@@ -125,6 +131,14 @@ function isValidResult(
   if (requiresTargetCollection && targetCount < config.minTargetCount) return false;
   if (config.maxTargetCount === 1 && targetCount !== 1) return false;
   if (targetCount > config.maxTargetCount) return false;
+
+  if (targetSkin && targetMaxOutputFloat !== undefined) {
+    const outputFloat = calculateOutputFloat(
+      calculateAverageNormalizedFloat(result.inputs),
+      targetSkin,
+    );
+    if (outputFloat > targetMaxOutputFloat + 0.0001) return false;
+  }
 
   return true;
 }
@@ -136,6 +150,7 @@ function optimizeSingleTier(
   targetSkin: SkinItem,
   collections: Collection[],
   baseBudget: number,
+  targetMaxOutputFloat?: number,
 ): TierOptimizationResult | null {
   const resolved = resolveTierConfig(config, targetSkin, collections);
   if (!resolved) return null;
@@ -175,6 +190,8 @@ function optimizeSingleTier(
       floorCost,
       requiresTarget,
       baseContext.outputsForSelection,
+      targetSkin,
+      targetMaxOutputFloat,
     )
   ) {
     return null;
@@ -197,6 +214,7 @@ export function optimizeAllTiers(
     collections: Collection[];
     baseBudget: number;
     includeMinLoss?: boolean;
+    targetMaxOutputFloat?: number;
   },
 ): TierOptimizationResult[] {
   const results: TierOptimizationResult[] = [];
@@ -210,6 +228,7 @@ export function optimizeAllTiers(
       options.targetSkin,
       options.collections,
       options.baseBudget,
+      options.targetMaxOutputFloat,
     );
     if (!result) continue;
 
@@ -227,6 +246,7 @@ export function optimizeAllTiers(
       options.targetSkin,
       options.collections,
       options.baseBudget,
+      options.targetMaxOutputFloat,
     );
     if (minLoss) {
       const sig = combinationSignature(minLoss.inputs);

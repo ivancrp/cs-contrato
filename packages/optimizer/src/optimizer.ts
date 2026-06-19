@@ -9,6 +9,7 @@ export {
 export { runOptimization, runOptimizationWithTargetMinimum, selectAlgorithm, createEvaluationContext } from './run-optimization.js';
 
 export { optimizeAllTiers, type TierOptimizationResult } from './optimize-tiers.js';
+export { optimizeByObjectives, ANALYSIS_OBJECTIVES, type ObjectiveOptimizationResult } from './optimize-objectives.js';
 export { TIER_CONFIGS, MIN_LOSS_TIER, scoreToStars } from './tier-configs.js';
 export {
   buildCheapCandidatePool,

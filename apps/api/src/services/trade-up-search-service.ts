@@ -1,6 +1,6 @@
 import { defaultRuleRegistry } from '@ct/contracts';
 import { buildTradeUpContract, floatToWear, getWearTiersForSkin, getWearTiersInRange } from '@ct/engine';
-import { optimizeAllTiers, scoreToStars } from '@ct/optimizer';
+import { optimizeByObjectives, scoreToStars, type ObjectiveOptimizationResult } from '@ct/optimizer';
 import type { CandidateListing } from '@ct/optimizer';
 import { fetchCsfloatListings, loadBulkSteamPricesBrl, createDefaultPriceAggregator } from '@ct/pricing';
 import type { CacheAdapter } from '@ct/common';
@@ -20,6 +20,7 @@ import {
   estimateAutoBudget,
   findCollectionsForTarget,
   findInputCandidates,
+  maxAllowedInputFloat,
   resolveSearchParams,
   resolveTargetSkin,
   splitInputSkinsByTargetCollection,
@@ -29,7 +30,7 @@ import {
 } from './trade-up-helpers.js';
 
 const MAX_SKINS_TO_QUERY = 32;
-const MAX_POOL_SIZE = 60;
+const MAX_POOL_SIZE = 80;
 const MARKET_BATCH = 6;
 
 export interface TradeUpSearchResponse {
@@ -117,14 +118,8 @@ function toOptimizerCandidates(
   });
 }
 
-function contractSignature(contract: TradeUpContract): string {
-  return contract.inputs
-    .map((input) => `${input.item.id}:${input.listing.float.toFixed(4)}`)
-    .sort()
-    .join('|');
-}
-
 async function fetchLiveListings(
+  targetSkin: SkinItem,
   inputSkins: SkinItem[],
   params: TradeUpSearchParams & { maxFloat: number },
   idealNorm: number,
@@ -138,7 +133,8 @@ async function fetchLiveListings(
     const batch = skinsToQuery.slice(i, i + MARKET_BATCH);
     await Promise.all(
       batch.map(async (item) => {
-        const maxAllowed = Math.min(item.maxFloat, params.maxFloat);
+        const maxAllowed = maxAllowedInputFloat(targetSkin, params.maxFloat, item);
+        if (maxAllowed < item.minFloat) return;
         const wears = getWearTiersInRange(item.minFloat, maxAllowed);
 
         for (const wear of wears) {
@@ -177,6 +173,7 @@ async function fetchLiveListings(
 }
 
 async function buildCatalogCandidates(
+  targetSkin: SkinItem,
   inputSkins: SkinItem[],
   params: TradeUpSearchParams & { maxFloat: number },
   idealNorm: number,
@@ -187,7 +184,8 @@ async function buildCatalogCandidates(
   const seen = new Set<string>();
 
   for (const item of inputSkins.slice(0, MAX_SKINS_TO_QUERY)) {
-    const maxAllowed = Math.min(item.maxFloat, params.maxFloat);
+    const maxAllowed = maxAllowedInputFloat(targetSkin, params.maxFloat, item);
+    if (maxAllowed < item.minFloat) continue;
     const wears = getWearTiersInRange(item.minFloat, maxAllowed);
 
     for (const wear of wears) {
@@ -252,6 +250,7 @@ async function buildCandidatePool(
   let priceSource: 'live' | 'catalog' = 'catalog';
 
   const targetCatalog = await buildCatalogCandidates(
+    targetSkin,
     targetSkins,
     params,
     idealNorm,
@@ -261,6 +260,7 @@ async function buildCandidatePool(
 
   if (useLiveMarket) {
     const live = await fetchLiveListings(
+      targetSkin,
       skinsToQuery,
       params,
       idealNorm,
@@ -270,6 +270,7 @@ async function buildCandidatePool(
     if (live.length > 0) priceSource = 'live';
 
     const fillerCatalog = await buildCatalogCandidates(
+      targetSkin,
       fillerQuery,
       params,
       idealNorm,
@@ -279,7 +280,7 @@ async function buildCandidatePool(
   } else {
     listings = mergeCandidates(
       listings,
-      await buildCatalogCandidates(fillerQuery, params, idealNorm, targetCollectionIds),
+      await buildCatalogCandidates(targetSkin, fillerQuery, params, idealNorm, targetCollectionIds),
     );
   }
 
@@ -311,7 +312,7 @@ async function buildCandidatePool(
 }
 
 async function buildContractsFromTiers(
-  tierResults: ReturnType<typeof optimizeAllTiers>,
+  tierResults: ObjectiveOptimizationResult[],
   targetSkin: SkinItem,
   collections: Collection[],
   cache: CacheAdapter,
@@ -320,6 +321,22 @@ async function buildContractsFromTiers(
   const aggregator = createDefaultPriceAggregator(cache);
 
   const contracts: EnrichedContract[] = [];
+
+  function starsForObjective(tier: ObjectiveOptimizationResult): number {
+    const m = tier.metrics;
+    switch (tier.tierId) {
+      case 'min_loss':
+        return scoreToStars(1 - m.lossChance);
+      case 'max_profit':
+        return scoreToStars(Math.min(Math.max(m.roi / 40, 0), 1));
+      case 'max_chance':
+        return scoreToStars(m.targetChance);
+      case 'high_risk_profit':
+        return scoreToStars(Math.min(Math.max(m.expectedProfit / (m.totalCost || 1), 0), 1));
+      default:
+        return scoreToStars(0.55);
+    }
+  }
 
   for (const tier of tierResults) {
     const contract = await buildContractWithMarketPrices({
@@ -335,7 +352,7 @@ async function buildContractsFromTiers(
       tier: tier.tierId,
       tierLabel: tier.label,
       algorithmUsed: tier.algorithm,
-      aiScore: scoreToStars(tier.score),
+      aiScore: starsForObjective(tier),
     });
   }
 
@@ -374,63 +391,53 @@ export async function searchTradeUpContracts(
     ctx.skinsById,
   );
 
-  const tierResults = optimizeAllTiers(
-    {
-      candidates: optimizerCandidates,
-      inputCount: rule.inputCount,
-      targetSkinId: targetSkin.id,
-      strategy: 'max_ev',
-      outputsForSelection: (inputs) => {
-        try {
-          return buildTradeUpContract({
-            inputs,
-            targetSkin,
-            rule,
-            collections: ctx.collections,
-            priceLookup: catalogPriceLookup,
-          }).outputs;
-        } catch {
-          return [];
-        }
-      },
-    },
-    {
+  const outputsForSelection = (inputs: import('@ct/types').ContractInput[]) => {
+    try {
+      return buildTradeUpContract({
+        inputs,
+        targetSkin,
+        rule,
+        collections: ctx.collections,
+        priceLookup: catalogPriceLookup,
+      }).outputs;
+    } catch {
+      return [];
+    }
+  };
+
+  const optimizationBase = {
+    candidates: optimizerCandidates,
+    inputCount: rule.inputCount,
+    targetSkinId: targetSkin.id,
+    strategy: 'max_ev' as const,
+    outputsForSelection,
+  };
+
+  let finalTierResults = optimizeByObjectives(optimizationBase, {
+    targetSkin,
+    collections: ctx.collections,
+    baseBudget: budget,
+    targetMaxOutputFloat: resolved.maxFloat,
+    includeWearTarget: true,
+  });
+
+  if (finalTierResults.length === 0) {
+    finalTierResults = optimizeByObjectives(optimizationBase, {
       targetSkin,
       collections: ctx.collections,
-      baseBudget: budget,
-      includeMinLoss: true,
-    },
-  );
+      baseBudget: Math.ceil(budget * 2),
+      targetMaxOutputFloat: resolved.maxFloat,
+      includeWearTarget: true,
+    });
+  }
 
-  let finalTierResults = tierResults;
   if (finalTierResults.length === 0) {
-    finalTierResults = optimizeAllTiers(
-      {
-        candidates: optimizerCandidates,
-        inputCount: rule.inputCount,
-        targetSkinId: targetSkin.id,
-        strategy: 'max_ev',
-        outputsForSelection: (inputs) => {
-          try {
-            return buildTradeUpContract({
-              inputs,
-              targetSkin,
-              rule,
-              collections: ctx.collections,
-              priceLookup: catalogPriceLookup,
-            }).outputs;
-          } catch {
-            return [];
-          }
-        },
-      },
-      {
-        targetSkin,
-        collections: ctx.collections,
-        baseBudget: Math.ceil(budget * 1.8),
-        includeMinLoss: true,
-      },
-    );
+    finalTierResults = optimizeByObjectives(optimizationBase, {
+      targetSkin,
+      collections: ctx.collections,
+      baseBudget: Math.ceil(budget * 2),
+      includeWearTarget: false,
+    });
   }
 
   if (finalTierResults.length === 0) {
@@ -444,11 +451,10 @@ export async function searchTradeUpContracts(
     ctx.cache,
   );
 
-  const seen = new Set<string>();
+  const seenTiers = new Set<string>();
   const uniqueContracts = contracts.filter((contract) => {
-    const sig = contractSignature(contract);
-    if (seen.has(sig)) return false;
-    seen.add(sig);
+    if (seenTiers.has(contract.tier)) return false;
+    seenTiers.add(contract.tier);
     return true;
   });
 

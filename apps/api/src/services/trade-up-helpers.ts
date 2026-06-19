@@ -228,6 +228,18 @@ export function buildIdealNorm(targetSkin: SkinItem, maxFloat: number): number {
   return requiredNormalizedWear(maxFloat, targetSkin);
 }
 
+/** Float máximo permitido em cada input para não ultrapassar o wear alvo na saída. */
+export function maxAllowedInputFloat(
+  targetSkin: SkinItem,
+  targetOutputMaxFloat: number,
+  inputSkin: SkinItem,
+): number {
+  return Math.min(
+    inputSkin.maxFloat,
+    maxInputFloatForTargetOutput(targetOutputMaxFloat, inputSkin, targetSkin),
+  );
+}
+
 /** Float representativo no meio da faixa de wear compatível com o trade up. */
 export function representativeFloatForWear(
   item: SkinItem,

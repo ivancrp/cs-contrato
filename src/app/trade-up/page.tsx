@@ -227,6 +227,8 @@ export default function TradeUpPage() {
             marketAvailability={result?.marketAvailability}
             contractCount={result?.contracts.length}
             collectionName={heroCollectionName || undefined}
+            targetWear={result?.wear ?? wear}
+            expectedOutputFloat={result?.contracts[0]?.floatMetrics.expectedOutputFloat}
           />
         </div>
       </div>

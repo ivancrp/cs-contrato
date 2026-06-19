@@ -53,7 +53,12 @@ function Stars({ score }: { score?: number }) {
   );
 }
 
-function getOutputHighlightClass(price: number, maxPrice: number, totalCost: number): string {
+function getOutputHighlightClass(
+  price: number,
+  maxPrice: number,
+  totalCost: number,
+  isTarget?: boolean,
+): string {
   const isHighest = maxPrice > 0 && price >= maxPrice;
   const isBelowCost = price < totalCost;
 
@@ -63,7 +68,10 @@ function getOutputHighlightClass(price: number, maxPrice: number, totalCost: num
   if (isBelowCost) {
     return 'ring-2 ring-red-500 ring-offset-2 ring-offset-[#0a0e14]';
   }
-  return '';
+  if (isTarget) {
+    return 'ring-2 ring-sky-400 ring-offset-2 ring-offset-[#0a0e14]';
+  }
+  return 'ring-2 ring-sky-500/60 ring-offset-2 ring-offset-[#0a0e14]';
 }
 
 const GENERIC_TARGET_PLACEHOLDER = `data:image/svg+xml,${encodeURIComponent(
@@ -82,12 +90,16 @@ export function TargetSkinHero({
   marketAvailability,
   contractCount,
   collectionName,
+  targetWear,
+  expectedOutputFloat,
 }: {
   targetSkin?: TradeUpSearchResult['targetSkin'];
   empty?: boolean;
   marketAvailability?: TradeUpSearchResult['marketAvailability'];
   contractCount?: number;
   collectionName?: string;
+  targetWear?: string;
+  expectedOutputFloat?: number;
 }) {
   if (empty || !targetSkin) {
     return (
@@ -123,14 +135,14 @@ export function TargetSkinHero({
         imageUrl={targetSkin.imageUrl}
         rarity={targetSkin.rarity}
         price={0}
-        float={0.265}
-        wear="Field-Tested"
+        float={expectedOutputFloat ?? 0}
+        wear={(targetWear as WearTier) ?? 'Factory New'}
         collectionId={targetSkin.collectionId}
         collectionName={collectionName}
         size="lg"
         badge="Alvo"
         showPrice={false}
-        showFloatBar={false}
+        showFloatBar={Boolean(expectedOutputFloat)}
       />
       <div className="-mt-2 border-t border-surface-border/60 px-4 py-3">
         <p className="text-sm text-slate-400">{targetSkin.weapon}</p>
@@ -240,7 +252,8 @@ function ContractCard({
               </h4>
               <p className="text-[10px] text-slate-600">
                 <span className="text-emerald-400">■</span> maior valor ·{' '}
-                <span className="text-red-400">■</span> abaixo do custo ({formatBrl(totalCost)})
+                <span className="text-red-400">■</span> abaixo do custo ·{' '}
+                <span className="text-sky-400">■</span> demais saídas ({formatBrl(totalCost)})
               </p>
             </div>
             <div className="grid grid-cols-5 gap-2 sm:gap-3">
@@ -260,7 +273,12 @@ function ContractCard({
                       ? `${(output.probability * 100).toFixed(1)}% alvo`
                       : `${(output.probability * 100).toFixed(1)}%`
                   }
-                  className={getOutputHighlightClass(output.price, maxOutputPrice, totalCost)}
+                  className={getOutputHighlightClass(
+                    output.price,
+                    maxOutputPrice,
+                    totalCost,
+                    output.isTarget,
+                  )}
                 />
               ))}
             </div>
@@ -299,6 +317,10 @@ function Metric({
 export function TradeUpResults({ result }: { result: TradeUpSearchResult }) {
   return (
     <div className="space-y-6">
+      <p className="text-sm text-slate-400">
+        Análise profunda · {result.contracts.length} estratégia
+        {result.contracts.length !== 1 ? 's' : ''}: menor perda, maior lucro, maiores chances e alto risco
+      </p>
       {result.contracts.map((contract) => (
         <ContractCard
           key={contract.tier}
