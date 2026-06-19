@@ -161,8 +161,13 @@ export default function TradeUpPage() {
               selectedSkin={selectedSkin}
               onChange={(query) => {
                 setSkinName(query);
-                setSelectedSkinId(undefined);
-                setSelectedSkin(null);
+                if (
+                  !selectedSkin ||
+                  query.trim().toLowerCase() !== selectedSkin.name.toLowerCase()
+                ) {
+                  setSelectedSkinId(undefined);
+                  setSelectedSkin(null);
+                }
               }}
               onSelect={(skin: SkinHit) => {
                 setSkinName(skin.name);

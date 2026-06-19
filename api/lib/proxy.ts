@@ -12,14 +12,38 @@ export async function getFastifyApp(): Promise<FastifyInstance> {
   return app;
 }
 
+/** Monta URL do Fastify preservando query params do request Vercel (exceto `path`). */
+export function buildFastifyUrl(req: VercelRequest, fastifyPath: string): string {
+  const pathname = fastifyPath.split('?')[0] || '/';
+  const params = new URLSearchParams();
+
+  const embeddedQuery = fastifyPath.includes('?') ? fastifyPath.slice(fastifyPath.indexOf('?') + 1) : '';
+  if (embeddedQuery) {
+    for (const [key, value] of new URLSearchParams(embeddedQuery)) {
+      params.append(key, value);
+    }
+  }
+
+  for (const [key, value] of Object.entries(req.query ?? {})) {
+    if (key === 'path' || value === undefined) continue;
+    if (Array.isArray(value)) {
+      for (const entry of value) params.append(key, String(entry));
+    } else {
+      params.set(key, String(value));
+    }
+  }
+
+  const qs = params.toString();
+  return qs ? `${pathname}?${qs}` : pathname;
+}
+
 export async function proxyToFastify(
   req: VercelRequest,
   res: VercelResponse,
   fastifyPath: string,
 ) {
   const fastify = await getFastifyApp();
-  const [pathname, query = ''] = fastifyPath.split('?');
-  const url = query ? `${pathname}?${query}` : pathname;
+  const url = buildFastifyUrl(req, fastifyPath);
 
   const response = await fastify.inject({
     method: (req.method ?? 'GET').toUpperCase() as 'GET',

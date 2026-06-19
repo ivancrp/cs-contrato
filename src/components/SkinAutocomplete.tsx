@@ -75,15 +75,13 @@ export function SkinAutocomplete({
     const trimmed = value.trim();
     activeQueryRef.current = trimmed;
 
-    if (!open || trimmed.length < MIN_QUERY_LENGTH) {
+    if (trimmed.length < MIN_QUERY_LENGTH) {
       setResults([]);
       setTotalResults(0);
       setLoading(false);
       return;
     }
 
-    setResults([]);
-    setTotalResults(0);
     setLoading(true);
 
     const controller = new AbortController();
@@ -122,7 +120,7 @@ export function SkinAutocomplete({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [value, stattrak, open]);
+  }, [value, stattrak]);
 
   function pickSkin(skin: SkinHit) {
     suppressSearchRef.current = true;
@@ -172,7 +170,7 @@ export function SkinAutocomplete({
       {showDropdown && (
         <ul
           role="listbox"
-          className="absolute z-30 mt-1 max-h-96 w-full overflow-auto rounded-lg border border-surface-border bg-surface-card shadow-xl"
+          className="absolute z-[60] mt-1 max-h-96 w-full overflow-auto rounded-lg border border-surface-border bg-surface-card shadow-xl"
         >
           {loading && (
             <li className="px-3 py-2 text-sm text-slate-500">Buscando…</li>
