@@ -1,6 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { AppHeader } from '@/components/AppHeader';
 
 export const metadata: Metadata = {
   title: 'CS Contrato — Trade Up Optimizer',
@@ -11,30 +11,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR">
       <body className="min-h-screen bg-surface text-slate-100 antialiased">
-        <header className="border-b border-surface-border bg-surface-card/80 backdrop-blur">
-          <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 2xl:max-w-[88rem] 2xl:px-8">
-            <Link href="/" className="text-lg font-semibold text-accent">
-              ⚡ CS Contrato
-            </Link>
-            <nav className="flex flex-wrap gap-4 text-sm text-slate-300">
-              <Link href="/dashboard" className="hover:text-white">
-                Dashboard
-              </Link>
-              <Link href="/trade-up" className="hover:text-white">
-                Trade Up
-              </Link>
-              <Link href="/opportunities" className="hover:text-white">
-                TOP 100
-              </Link>
-              <Link href="/stattrak" className="hover:text-white">
-                StatTrak
-              </Link>
-              <Link href="/alerts" className="hover:text-white">
-                Alertas
-              </Link>
-            </nav>
-          </div>
-        </header>
+        <AppHeader />
         <main className="mx-auto w-full max-w-7xl px-4 py-8 2xl:max-w-[88rem] 2xl:px-8">{children}</main>
       </body>
     </html>

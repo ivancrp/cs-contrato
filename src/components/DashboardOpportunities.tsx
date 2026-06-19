@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { API_BASE } from '@/lib/api';
 import type { OpportunitySummary } from '@/lib/api';
-import { OpportunitiesChart } from '@/components/OpportunitiesChart';
 import { OpportunityImageGrid } from '@/components/OpportunityList';
 
 interface DashboardOpportunitiesProps {
@@ -33,22 +32,13 @@ export function DashboardOpportunities({ initialData }: DashboardOpportunitiesPr
       .finally(() => setLoading(false));
   }, [initialData?.items?.length]);
 
-  const chartItems = items.map((i) => ({
-    name: i.targetSkinName,
-    roi: i.roi,
-    expectedProfit: i.expectedProfit,
-    referencePrice: i.referencePrice,
-    estimatedCost: i.estimatedCost,
-    expectedValue: i.expectedValue,
-  }));
-
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-6 2xl:p-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold">TOP oportunidades (ROI)</h2>
           <p className="mt-1 text-xs text-slate-500">
-            Referência = preço da skin alvo · Custo = 10 inputs mais baratos · Valor esp. = média dos outputs
+            Clique em uma skin para abrir detalhes, preços CSFloat e gráfico individual
           </p>
           {scannedAt && (
             <p className="mt-1 text-xs text-slate-600">
@@ -65,16 +55,13 @@ export function DashboardOpportunities({ initialData }: DashboardOpportunitiesPr
       </div>
 
       {loading ? (
-        <div className="mt-6 space-y-8">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={`skel-${i}`}
-                className="h-[22rem] animate-pulse rounded-xl border border-surface-border bg-surface/60"
-              />
-            ))}
-          </div>
-          <div className="h-96 animate-pulse rounded-lg bg-surface/40" />
+        <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={`skel-${i}`}
+              className="h-64 animate-pulse rounded-xl border border-surface-border bg-surface/60"
+            />
+          ))}
         </div>
       ) : items.length === 0 ? (
         <div className="mt-6 rounded-lg border border-dashed border-surface-border bg-surface/40 px-6 py-10 text-center">
@@ -90,19 +77,8 @@ export function DashboardOpportunities({ initialData }: DashboardOpportunitiesPr
           </Link>
         </div>
       ) : (
-        <div className="mt-6 space-y-8">
-          <div>
-            <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">
-              Destaques
-            </h3>
-            <OpportunityImageGrid items={items} variant="dashboard" />
-          </div>
-          <div>
-            <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">
-              Comparativo de preços
-            </h3>
-            <OpportunitiesChart items={chartItems} maxItems={6} className="h-80 lg:h-96" />
-          </div>
+        <div className="mt-6">
+          <OpportunityImageGrid items={items} variant="dashboard" />
         </div>
       )}
     </section>

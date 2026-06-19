@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { Rarity, WearTier } from '@ct/types';
 import { SkinItemCard } from '@/components/SkinItemCard';
+import { OpportunityDetailModal } from '@/components/OpportunityDetailModal';
 import {
   csfloatSearchUrl,
   openInspectInGame,
@@ -201,15 +202,21 @@ function resolveWearLabel(referenceWear?: string): WearTier | string {
   return fromAbbr?.[0] ?? referenceWear;
 }
 
-function OpportunityHighlightCard({ item }: { item: OpportunityListItem }) {
-  const marketUrl =
-    item.priceSourceUrl ??
-    (item.referenceMarketHash ? priceSourceUrl(item.priceSource ?? 'steam_scm', item.referenceMarketHash) : null);
-  const csfloatUrl = item.referenceMarketHash ? csfloatSearchUrl(item.referenceMarketHash) : null;
+function DashboardOpportunityCard({
+  item,
+  onSelect,
+}: {
+  item: OpportunityListItem;
+  onSelect: (item: OpportunityListItem) => void;
+}) {
   const wearLabel = resolveWearLabel(item.referenceWear);
 
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <button
+      type="button"
+      onClick={() => onSelect(item)}
+      className="group flex min-w-0 flex-col gap-2 text-left transition hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+    >
       <SkinItemCard
         name={item.targetSkinName}
         imageUrl={item.imageUrl}
@@ -220,81 +227,19 @@ function OpportunityHighlightCard({ item }: { item: OpportunityListItem }) {
         badge={`#${item.rank}`}
         size="sm"
         showPrice={item.referencePrice != null}
+        className="cursor-pointer"
       />
-
-      <div className="rounded-xl border border-surface-border/80 bg-[#0c1018] px-2.5 py-2.5">
-        <p
-          className={`text-center text-xs font-bold tabular-nums ${
-            item.roi >= 0 ? 'text-emerald-400' : 'text-red-400'
-          }`}
-        >
-          {item.roi.toFixed(1)}% ROI
-        </p>
-
-        <div className="mt-2">
-          <WearPriceGrid wearPrices={item.wearPrices} referenceWear={item.referenceWear} />
-        </div>
-
-        <div className="mt-2 grid grid-cols-3 gap-1.5 text-center text-[10px]">
-          <div className="rounded-md bg-surface/50 px-1 py-1.5">
-            <p className="text-slate-500">Ref. {refWearAbbr(item.referenceWear)}</p>
-            <p className="mt-0.5 font-semibold tabular-nums text-sky-300">
-              {item.referencePrice != null ? formatBrl(item.referencePrice) : '—'}
-            </p>
-          </div>
-          <div className="rounded-md bg-surface/50 px-1 py-1.5">
-            <p className="text-slate-500">Custo</p>
-            <p className="mt-0.5 font-semibold tabular-nums text-amber-300">
-              {item.estimatedCost != null ? formatBrl(item.estimatedCost) : '—'}
-            </p>
-          </div>
-          <div className="rounded-md bg-surface/50 px-1 py-1.5">
-            <p className="text-slate-500">Valor esp.</p>
-            <p className="mt-0.5 font-semibold tabular-nums text-emerald-300">
-              {item.expectedValue != null ? formatBrl(item.expectedValue) : '—'}
-            </p>
-          </div>
-        </div>
-
-        {item.costInputSkin && item.costInputPrice != null && (
-          <p className="mt-2 line-clamp-2 text-center text-[10px] leading-snug text-slate-500">
-            10× <span className="text-slate-400">{item.costInputSkin}</span> ·{' '}
-            {formatBrl(item.costInputPrice)} FT
-          </p>
-        )}
-
-        <div className="mt-2 flex flex-wrap justify-center gap-1.5">
-          {item.inspectLink ? (
-            <button
-              type="button"
-              onClick={() => handleInspectClick(item.inspectLink!)}
-              className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/20"
-            >
-              Inspecionar
-            </button>
-          ) : csfloatUrl ? (
-            <a
-              href={csfloatUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/20"
-            >
-              Buscar inspect
-            </a>
-          ) : null}
-          {marketUrl && (
-            <a
-              href={marketUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-300 hover:bg-sky-500/20"
-            >
-              {priceSourceLabel(item.priceSource ?? 'steam_scm')}
-            </a>
-          )}
-        </div>
-      </div>
-    </div>
+      <p
+        className={`text-center text-xs font-bold tabular-nums ${
+          item.roi >= 0 ? 'text-emerald-400' : 'text-red-400'
+        }`}
+      >
+        {item.roi.toFixed(1)}% ROI
+      </p>
+      <p className="text-center text-[10px] text-slate-500 opacity-0 transition group-hover:opacity-100">
+        Clique para detalhes →
+      </p>
+    </button>
   );
 }
 
@@ -335,18 +280,23 @@ export function OpportunityImageGrid({
   items: OpportunityListItem[];
   variant?: 'default' | 'dashboard';
 }) {
-  const top = items.slice(0, 6);
+  const top = items.slice(0, variant === 'dashboard' ? 12 : 6);
+  const [selected, setSelected] = useState<OpportunityListItem | null>(null);
+
   if (top.length === 0) return null;
 
   const isDashboard = variant === 'dashboard';
 
   if (isDashboard) {
     return (
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
-        {top.map((item) => (
-          <OpportunityHighlightCard key={item.rank} item={item} />
-        ))}
-      </div>
+      <>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-6">
+          {top.map((item) => (
+            <DashboardOpportunityCard key={item.rank} item={item} onSelect={setSelected} />
+          ))}
+        </div>
+        <OpportunityDetailModal item={selected} onClose={() => setSelected(null)} />
+      </>
     );
   }
 

@@ -11,6 +11,7 @@ import { registerOpportunitiesRoutes } from './routes/opportunities.js';
 import { registerAlertRoutes } from './routes/alerts.js';
 import { registerRiskRoutes } from './routes/risk.js';
 import { registerSimulationRoutes } from './routes/simulate.js';
+import { registerStatTrakRoutes } from './routes/stattrak.js';
 import type {
   ContractInput,
   OptimizationStrategy,
@@ -173,6 +174,7 @@ export async function buildApp() {
   await registerTradeUpRoutes(app, getContext);
   await registerOpportunitiesRoutes(app, getContext);
   await registerAlertRoutes(app, async () => (await getContext()).cache);
+  await registerStatTrakRoutes(app, getContext);
 
   app.get('/search', async (req) => {
     const query = req.query as { q: string; type?: string; limit?: string; stattrak?: string };
@@ -201,6 +203,56 @@ export async function buildApp() {
 
     if (!result) return reply.status(404).send({ error: 'Preço não encontrado' });
     return result;
+  });
+
+  app.get('/prices/wear-grid', async (req, reply) => {
+    const query = req.query as { name?: string; stattrak?: string };
+    if (!query.name) return reply.status(400).send({ error: 'name é obrigatório' });
+
+    const { buildMarketHashName } = await import('./services/trade-up-helpers.js');
+    const USD_TO_BRL = Number(process.env.USD_TO_BRL ?? 5.5);
+    const wears = [
+      'Factory New',
+      'Minimal Wear',
+      'Field-Tested',
+      'Well-Worn',
+      'Battle-Scarred',
+    ] as const;
+    const abbr: Record<(typeof wears)[number], string> = {
+      'Factory New': 'FN',
+      'Minimal Wear': 'MW',
+      'Field-Tested': 'FT',
+      'Well-Worn': 'WW',
+      'Battle-Scarred': 'BS',
+    };
+
+    const ctx = await getContext();
+    const aggregator = createDefaultPriceAggregator(ctx.cache);
+    const stattrak = query.stattrak === 'true';
+    const prices: Record<string, number> = {};
+    let primarySource = 'csfloat';
+
+    await Promise.all(
+      wears.map(async (wear) => {
+        const marketHashName = buildMarketHashName(query.name!, stattrak, wear);
+        const result = await aggregator.getPrice({ marketHashName, wear });
+        if (!result?.quote?.price) return;
+
+        const price =
+          result.quote.currency === 'USD'
+            ? Math.round(result.quote.price * USD_TO_BRL * 100) / 100
+            : Math.round(result.quote.price * 100) / 100;
+
+        prices[abbr[wear]] = price;
+        if (result.provider !== 'csfloat') primarySource = result.provider;
+      }),
+    );
+
+    if (Object.keys(prices).length === 0) {
+      return reply.status(404).send({ error: 'Nenhum preço encontrado no CSFloat' });
+    }
+
+    return { prices, source: primarySource, currency: 'BRL' };
   });
 
   app.post('/optimizer', async (req, reply) => {
