@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { OpportunitiesChart } from '@/components/OpportunitiesChart';
-import { SkinItemCard } from '@/components/SkinItemCard';
+import { SkinImage } from '@/components/OpportunityList';
 import { API_BASE } from '@/lib/api';
 import {
   csfloatSearchUrl,
@@ -27,25 +27,6 @@ function refWearAbbr(referenceWear?: string): string {
   return 'FT';
 }
 
-function resolveWearLabel(referenceWear?: string): string {
-  if (!referenceWear) return 'Field-Tested';
-  if (referenceWear in WEAR_ABBR) return referenceWear;
-  const fromAbbr = Object.entries(WEAR_ABBR).find(([, abbr]) => abbr === referenceWear);
-  return fromAbbr?.[0] ?? referenceWear;
-}
-
-function defaultFloatForWear(referenceWear?: string): number {
-  const abbr = refWearAbbr(referenceWear);
-  const floats: Record<string, number> = {
-    FN: 0.035,
-    MW: 0.11,
-    FT: 0.25,
-    WW: 0.42,
-    BS: 0.75,
-  };
-  return floats[abbr] ?? 0.25;
-}
-
 function handleInspectClick(inspectLink: string) {
   const result = openInspectInGame(inspectLink);
   if (result === 'copied') {
@@ -67,29 +48,21 @@ function WearPriceGrid({
   const refAbbr = refWearAbbr(referenceWear);
 
   return (
-    <div className="grid grid-cols-5 gap-1.5 rounded-lg border border-surface-border/60 bg-[#0b1018]/50 p-2">
+    <div className="grid grid-cols-5 gap-1 rounded-lg border border-surface-border/60 bg-[#0b1018]/50 p-1">
       {WEAR_ORDER.map((abbr) => {
         const price = wearPrices?.[abbr];
         const active = abbr === refAbbr;
         return (
           <div
             key={abbr}
-            className={`rounded-md px-1 py-1.5 text-center transition-colors ${
-              active ? 'bg-sky-500/15 ring-1 ring-sky-500/35' : ''
-            }`}
+            className={`rounded px-0.5 py-0.5 text-center ${active ? 'bg-sky-500/15 ring-1 ring-sky-500/35' : ''}`}
           >
-            <div className={`text-[10px] font-semibold uppercase ${active ? 'text-sky-400' : 'text-slate-500'}`}>
+            <div className={`text-[9px] font-semibold uppercase ${active ? 'text-sky-400' : 'text-slate-500'}`}>
               {abbr}
             </div>
             <div
-              className={`mt-0.5 text-xs tabular-nums ${
-                loading
-                  ? 'animate-pulse text-slate-600'
-                  : price != null
-                    ? active
-                      ? 'text-slate-100'
-                      : 'text-slate-400'
-                    : 'text-slate-600'
+              className={`text-[10px] tabular-nums leading-tight ${
+                loading ? 'animate-pulse text-slate-600' : price != null ? 'text-slate-300' : 'text-slate-600'
               }`}
             >
               {loading ? '…' : price != null ? formatBrl(price, true) : '—'}
@@ -145,7 +118,6 @@ export function OpportunityDetailModal({ item, onClose }: OpportunityDetailModal
 
   if (!item) return null;
 
-  const wearLabel = resolveWearLabel(item.referenceWear);
   const marketUrl =
     item.priceSourceUrl ??
     (item.referenceMarketHash ? priceSourceUrl(item.priceSource ?? 'steam_scm', item.referenceMarketHash) : null);
@@ -163,7 +135,7 @@ export function OpportunityDetailModal({ item, onClose }: OpportunityDetailModal
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="opportunity-modal-title"
@@ -175,145 +147,121 @@ export function OpportunityDetailModal({ item, onClose }: OpportunityDetailModal
         onClick={onClose}
       />
 
-      <div className="relative flex max-h-[95vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-surface-border bg-surface-card shadow-2xl sm:rounded-2xl">
-        <div className="flex items-center justify-between border-b border-surface-border/60 px-4 py-3">
-          <div>
-            <p className="text-xs font-medium text-slate-500">#{item.rank} · Oportunidade</p>
-            <h2 id="opportunity-modal-title" className="text-base font-bold text-white">
+      <div className="relative w-full max-w-3xl overflow-hidden rounded-xl border border-surface-border bg-surface-card shadow-2xl">
+        <div className="flex items-center justify-between border-b border-surface-border/60 px-3 py-2">
+          <div className="min-w-0 pr-2">
+            <p className="text-[10px] font-medium text-slate-500">#{item.rank} · Oportunidade</p>
+            <h2 id="opportunity-modal-title" className="truncate text-sm font-bold text-white">
               {item.targetSkinName}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-surface-border text-slate-400 transition hover:bg-surface hover:text-white"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-surface-border text-slate-400 hover:bg-surface hover:text-white"
             aria-label="Fechar modal"
           >
             ✕
           </button>
         </div>
 
-        <div className="overflow-y-auto p-4 sm:p-5">
-          <div className="grid gap-5 sm:grid-cols-2">
-            <SkinItemCard
-              name={item.targetSkinName}
-              imageUrl={item.imageUrl}
-              rarity={item.rarity}
-              price={item.referencePrice ?? 0}
-              float={defaultFloatForWear(item.referenceWear)}
-              wear={wearLabel}
-              badge={`#${item.rank}`}
-              size="sm"
-              showPrice={item.referencePrice != null}
-            />
+        <div className="grid grid-cols-[7rem_1fr] gap-3 p-3 sm:grid-cols-[8.5rem_1fr] sm:gap-4 sm:p-4">
+          <div className="flex flex-col items-center gap-1.5">
+            <SkinImage name={item.targetSkinName} imageUrl={item.imageUrl} rarity={item.rarity} size="lg" />
+            <p
+              className={`text-center text-lg font-bold tabular-nums leading-none ${
+                item.roi >= 0 ? 'text-emerald-400' : 'text-red-400'
+              }`}
+            >
+              {item.roi.toFixed(1)}%
+            </p>
+            <p className="text-[9px] uppercase tracking-wide text-slate-500">ROI</p>
+          </div>
 
-            <div className="flex flex-col justify-center space-y-3">
-              <p
-                className={`text-center text-2xl font-bold tabular-nums ${
-                  item.roi >= 0 ? 'text-emerald-400' : 'text-red-400'
-                }`}
-              >
-                {item.roi.toFixed(1)}% ROI
-              </p>
-              <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="rounded-lg bg-surface/60 px-2 py-2">
-                  <p className="text-slate-500">Ref. {refWearAbbr(item.referenceWear)}</p>
-                  <p className="mt-0.5 font-semibold tabular-nums text-sky-300">
-                    {item.referencePrice != null ? formatBrl(item.referencePrice) : '—'}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-surface/60 px-2 py-2">
-                  <p className="text-slate-500">Custo</p>
-                  <p className="mt-0.5 font-semibold tabular-nums text-amber-300">
-                    {item.estimatedCost != null ? formatBrl(item.estimatedCost) : '—'}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-surface/60 px-2 py-2">
-                  <p className="text-slate-500">Valor esp.</p>
-                  <p className="mt-0.5 font-semibold tabular-nums text-emerald-300">
-                    {item.expectedValue != null ? formatBrl(item.expectedValue) : '—'}
-                  </p>
-                </div>
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="grid grid-cols-3 gap-1.5 text-center text-[10px]">
+              <div className="rounded-md bg-surface/60 px-1 py-1">
+                <p className="text-slate-500">Ref. {refWearAbbr(item.referenceWear)}</p>
+                <p className="font-semibold tabular-nums text-sky-300">
+                  {item.referencePrice != null ? formatBrl(item.referencePrice) : '—'}
+                </p>
+              </div>
+              <div className="rounded-md bg-surface/60 px-1 py-1">
+                <p className="text-slate-500">Custo</p>
+                <p className="font-semibold tabular-nums text-amber-300">
+                  {item.estimatedCost != null ? formatBrl(item.estimatedCost) : '—'}
+                </p>
+              </div>
+              <div className="rounded-md bg-surface/60 px-1 py-1">
+                <p className="text-slate-500">Valor esp.</p>
+                <p className="font-semibold tabular-nums text-emerald-300">
+                  {item.expectedValue != null ? formatBrl(item.expectedValue) : '—'}
+                </p>
               </div>
             </div>
-          </div>
 
-          <div className="mt-5">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Preços por exterior
-              </p>
-              <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
-                {csfloatPrices ? 'CSFloat · BRL' : pricesLoading ? 'Carregando CSFloat…' : 'Catálogo Steam'}
-              </span>
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <p className="text-[9px] font-medium uppercase tracking-wide text-slate-500">Exteriores</p>
+                <span className="text-[9px] text-emerald-400">
+                  {csfloatPrices ? 'CSFloat' : pricesLoading ? '…' : 'Steam'}
+                </span>
+              </div>
+              <WearPriceGrid
+                wearPrices={displayPrices}
+                referenceWear={item.referenceWear}
+                loading={pricesLoading && !csfloatPrices}
+              />
             </div>
-            <WearPriceGrid
-              wearPrices={displayPrices}
-              referenceWear={item.referenceWear}
-              loading={pricesLoading && !csfloatPrices}
-            />
-          </div>
 
-          {item.costInputSkin && item.costInputPrice != null && (
-            <div className="mt-4 rounded-lg border border-surface-border/60 bg-surface/40 px-3 py-2.5 text-xs text-slate-400">
-              <p className="font-medium text-slate-300">Como o custo é calculado</p>
-              <p className="mt-1 leading-relaxed">
-                Um contrato CS2 exige <strong className="text-slate-200">10 skins de entrada</strong> da mesma
-                raridade. O sistema usa a skin input mais barata da coleção —{' '}
-                <span className="text-slate-200">{item.costInputSkin}</span> — a{' '}
-                <span className="text-slate-200">{formatBrl(item.costInputPrice)}/un</span> em{' '}
-                <span className="text-slate-200">Field-Tested</span>, totalizando{' '}
-                <span className="text-amber-300">{formatBrl(item.estimatedCost ?? 0)}</span>.
+            {item.costInputSkin && item.costInputPrice != null && (
+              <p className="text-[10px] leading-snug text-slate-500">
+                Custo: 10× {item.costInputSkin} · {formatBrl(item.costInputPrice)}/un FT
               </p>
+            )}
+
+            <OpportunitiesChart items={[chartItem]} maxItems={1} className="h-28" />
+
+            <div className="flex flex-wrap gap-1.5">
+              {item.inspectLink ? (
+                <button
+                  type="button"
+                  onClick={() => handleInspectClick(item.inspectLink!)}
+                  className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/20"
+                >
+                  Inspecionar
+                </button>
+              ) : csfloatUrl ? (
+                <a
+                  href={csfloatUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/20"
+                >
+                  Buscar inspect
+                </a>
+              ) : null}
+              {csfloatUrl && (
+                <a
+                  href={csfloatUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/20"
+                >
+                  CSFloat
+                </a>
+              )}
+              {marketUrl && (
+                <a
+                  href={marketUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-300 hover:bg-sky-500/20"
+                >
+                  {priceSourceLabel(item.priceSource ?? 'steam_scm')}
+                </a>
+              )}
             </div>
-          )}
-
-          <div className="mt-5">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-              Comparativo de preços
-            </p>
-            <OpportunitiesChart items={[chartItem]} maxItems={1} className="h-56" />
-          </div>
-
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {item.inspectLink ? (
-              <button
-                type="button"
-                onClick={() => handleInspectClick(item.inspectLink!)}
-                className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20"
-              >
-                Inspecionar
-              </button>
-            ) : csfloatUrl ? (
-              <a
-                href={csfloatUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20"
-              >
-                Buscar inspect
-              </a>
-            ) : null}
-            {csfloatUrl && (
-              <a
-                href={csfloatUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20"
-              >
-                CSFloat
-              </a>
-            )}
-            {marketUrl && (
-              <a
-                href={marketUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/20"
-              >
-                {priceSourceLabel(item.priceSource ?? 'steam_scm')}
-              </a>
-            )}
           </div>
         </div>
       </div>

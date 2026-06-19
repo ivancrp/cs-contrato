@@ -1,9 +1,8 @@
-import { createDefaultPriceAggregator } from '@ct/pricing';
+import { loadBulkSteamPricesBrl } from '@ct/pricing';
 import type { SkinItem, WearTier } from '@ct/types';
 import type { AppContext } from '../app-context.js';
 import { buildMarketHashName } from './trade-up-helpers.js';
 
-const USD_TO_BRL = Number(process.env.USD_TO_BRL ?? 5.5);
 const DEFAULT_WEAR: WearTier = 'Field-Tested';
 
 export interface StatTrakComparisonRow {
@@ -13,32 +12,19 @@ export interface StatTrakComparisonRow {
   wear: WearTier;
   normalPrice: number;
   stattrakPrice: number;
-  premium: number;
-  premiumPercent: number;
-  normalSource: string;
-  stattrakSource: string;
+  savings: number;
+  savingsPercent: number;
 }
 
-function toBrl(price: number, currency: string): number {
-  if (currency === 'USD') return Math.round(price * USD_TO_BRL * 100) / 100;
-  return Math.round(price * 100) / 100;
-}
-
-async function fetchWearPrice(
+function catalogPrice(
+  catalog: Map<string, number>,
   skinName: string,
   stattrak: boolean,
   wear: WearTier,
-  ctx: AppContext,
-): Promise<{ price: number; source: string } | null> {
-  const aggregator = createDefaultPriceAggregator(ctx.cache);
-  const marketHashName = buildMarketHashName(skinName, stattrak, wear);
-  const result = await aggregator.getPrice({ marketHashName, wear });
-  if (!result?.quote?.price) return null;
-
-  return {
-    price: toBrl(result.quote.price, result.quote.currency),
-    source: result.provider,
-  };
+): number | undefined {
+  const hash = buildMarketHashName(skinName, stattrak, wear);
+  const price = catalog.get(hash);
+  return price && price > 0 ? price : undefined;
 }
 
 function buildPairs(skins: SkinItem[]): Array<{ normal: SkinItem; st: SkinItem }> {
@@ -59,55 +45,39 @@ function buildPairs(skins: SkinItem[]): Array<{ normal: SkinItem; st: SkinItem }
   return pairs;
 }
 
+/** Skins onde StatTrak™ custa menos que a versão normal (mesmo exterior). */
 export async function getStatTrakComparisons(
   ctx: AppContext,
-  options: { limit?: number; wear?: WearTier; batchSize?: number } = {},
+  options: { limit?: number; wear?: WearTier } = {},
 ): Promise<StatTrakComparisonRow[]> {
   const limit = Math.min(options.limit ?? 100, 200);
   const wear = options.wear ?? DEFAULT_WEAR;
-  const batchSize = options.batchSize ?? 8;
-
+  const catalog = await loadBulkSteamPricesBrl();
   const pairs = buildPairs(ctx.skins);
   const comparisons: StatTrakComparisonRow[] = [];
 
-  for (let i = 0; i < pairs.length && comparisons.length < limit; i += batchSize) {
-    const batch = pairs.slice(i, i + batchSize);
-    const results = await Promise.all(
-      batch.map(async ({ normal, st }) => {
-        const [normalQuote, stQuote] = await Promise.all([
-          fetchWearPrice(normal.name, false, wear, ctx),
-          fetchWearPrice(st.name, true, wear, ctx),
-        ]);
+  for (const { normal, st } of pairs) {
+    const normalPrice = catalogPrice(catalog, normal.name, false, wear);
+    const stattrakPrice = catalogPrice(catalog, st.name, true, wear);
+    if (!normalPrice || !stattrakPrice) continue;
+    if (stattrakPrice >= normalPrice) continue;
 
-        if (!normalQuote || !stQuote) return null;
+    const savings = normalPrice - stattrakPrice;
+    const savingsPercent = normalPrice > 0 ? (savings / normalPrice) * 100 : 0;
 
-        const premium = stQuote.price - normalQuote.price;
-        const premiumPercent =
-          normalQuote.price > 0 ? (premium / normalQuote.price) * 100 : 0;
-
-        return {
-          skinName: normal.name,
-          weapon: normal.weapon,
-          rarity: normal.rarity,
-          wear,
-          normalPrice: normalQuote.price,
-          stattrakPrice: stQuote.price,
-          premium: Math.round(premium * 100) / 100,
-          premiumPercent: Math.round(premiumPercent * 10) / 10,
-          normalSource: normalQuote.source,
-          stattrakSource: stQuote.source,
-        } satisfies StatTrakComparisonRow;
-      }),
-    );
-
-    for (const row of results) {
-      if (row) comparisons.push(row);
-    }
+    comparisons.push({
+      skinName: normal.name,
+      weapon: normal.weapon,
+      rarity: normal.rarity,
+      wear,
+      normalPrice: Math.round(normalPrice * 100) / 100,
+      stattrakPrice: Math.round(stattrakPrice * 100) / 100,
+      savings: Math.round(savings * 100) / 100,
+      savingsPercent: Math.round(savingsPercent * 10) / 10,
+    });
   }
 
-  comparisons.sort(
-    (a, b) => Math.abs(b.premiumPercent) - Math.abs(a.premiumPercent) || b.premium - a.premium,
-  );
+  comparisons.sort((a, b) => b.savingsPercent - a.savingsPercent || b.savings - a.savings);
 
   return comparisons.slice(0, limit);
 }

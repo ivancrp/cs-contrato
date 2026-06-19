@@ -19,7 +19,7 @@ export async function registerStatTrakRoutes(
       total: items.length,
       wear,
       currency: 'BRL',
-      note: 'Preços via CSFloat (prioritário) com fallback para outros mercados',
+      note: 'StatTrak™ mais barato que normal — preços Steam SCM (ByMykel) em BRL',
     };
   });
 }

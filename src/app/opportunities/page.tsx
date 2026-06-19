@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { API_BASE } from '@/lib/api';
-import { OpportunitiesChart } from '@/components/OpportunitiesChart';
-import { OpportunityImageGrid, OpportunityTable } from '@/components/OpportunityList';
+import { OpportunityTable } from '@/components/OpportunityList';
 import { ScanOpportunitiesButton } from '@/components/ScanOpportunitiesButton';
 import type { OpportunityListItem } from '@/components/OpportunityList';
 
@@ -35,21 +34,6 @@ export default function OpportunitiesPage() {
           </p>
         </div>
         <ScanOpportunitiesButton />
-      </div>
-
-      <div className="rounded-xl border border-surface-border bg-surface-card p-4">
-        <h2 className="mb-3 text-sm font-medium text-slate-400">ROI por skin (top 12)</h2>
-        <OpportunityImageGrid items={data.items} />
-        <OpportunitiesChart
-          items={data.items.map((i) => ({
-            name: i.targetSkinName,
-            roi: i.roi,
-            expectedProfit: i.expectedProfit,
-            referencePrice: i.referencePrice,
-            estimatedCost: i.estimatedCost,
-            expectedValue: i.expectedValue,
-          }))}
-        />
       </div>
 
       <OpportunityTable items={data.items} />

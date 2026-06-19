@@ -10,10 +10,8 @@ interface ComparisonRow {
   rarity: string;
   normalPrice: number;
   stattrakPrice: number;
-  premium: number;
-  premiumPercent: number;
-  normalSource: string;
-  stattrakSource: string;
+  savings: number;
+  savingsPercent: number;
 }
 
 const WEAR_OPTIONS = [
@@ -59,9 +57,9 @@ export default function StatTrakPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">StatTrak vs Normal</h1>
+        <h1 className="text-2xl font-bold">StatTrak™ mais barato que Normal</h1>
         <p className="mt-1 text-sm text-slate-400">
-          Comparação de preços CSFloat entre versão normal e StatTrak™
+          Skins onde a versão StatTrak™ custa menos que a normal (Steam SCM · BRL)
         </p>
       </div>
 
@@ -101,9 +99,11 @@ export default function StatTrakPage() {
 
       {!loading && !error && filtered.length === 0 && (
         <div className="rounded-lg border border-dashed border-surface-border bg-surface/40 px-6 py-10 text-center">
-          <p className="text-sm text-slate-400">Nenhuma comparação encontrada para este exterior.</p>
+          <p className="text-sm text-slate-400">
+            Nenhuma skin com StatTrak™ mais barata que a normal neste exterior.
+          </p>
           <p className="mt-1 text-xs text-slate-500">
-            Verifique se a API está online e se o CSFloat responde aos preços.
+            Isso é incomum — tente outro exterior ou aguarde atualização de preços.
           </p>
         </div>
       )}
@@ -116,7 +116,7 @@ export default function StatTrakPage() {
                 <th className="px-4 py-3">Skin</th>
                 <th className="px-4 py-3">Normal</th>
                 <th className="px-4 py-3">StatTrak™</th>
-                <th className="px-4 py-3">Diferença</th>
+                <th className="px-4 py-3">Economia</th>
                 <th className="px-4 py-3">%</th>
               </tr>
             </thead>
@@ -127,28 +127,15 @@ export default function StatTrakPage() {
                     <div className="font-medium">{row.skinName}</div>
                     <div className="text-xs text-slate-500">{row.weapon}</div>
                   </td>
-                  <td className="px-4 py-2">
-                    <span className="tabular-nums">R$ {row.normalPrice.toFixed(2)}</span>
-                    <span className="ml-1 text-[10px] text-slate-600">{row.normalSource}</span>
+                  <td className="px-4 py-2 tabular-nums">R$ {row.normalPrice.toFixed(2)}</td>
+                  <td className="px-4 py-2 tabular-nums text-emerald-300">
+                    R$ {row.stattrakPrice.toFixed(2)}
                   </td>
-                  <td className="px-4 py-2">
-                    <span className="tabular-nums">R$ {row.stattrakPrice.toFixed(2)}</span>
-                    <span className="ml-1 text-[10px] text-slate-600">{row.stattrakSource}</span>
+                  <td className="px-4 py-2 tabular-nums text-emerald-400">
+                    R$ {row.savings.toFixed(2)}
                   </td>
-                  <td
-                    className={`px-4 py-2 tabular-nums ${
-                      row.premium >= 0 ? 'text-amber-400' : 'text-emerald-400'
-                    }`}
-                  >
-                    {row.premium >= 0 ? '+' : ''}R$ {row.premium.toFixed(2)}
-                  </td>
-                  <td
-                    className={`px-4 py-2 tabular-nums ${
-                      row.premiumPercent >= 0 ? 'text-amber-400' : 'text-emerald-400'
-                    }`}
-                  >
-                    {row.premiumPercent >= 0 ? '+' : ''}
-                    {row.premiumPercent.toFixed(1)}%
+                  <td className="px-4 py-2 tabular-nums text-emerald-400">
+                    {row.savingsPercent.toFixed(1)}%
                   </td>
                 </tr>
               ))}
