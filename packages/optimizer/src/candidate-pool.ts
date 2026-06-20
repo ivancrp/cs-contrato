@@ -133,12 +133,37 @@ export function buildCheapCandidatePool(
 ): CandidateListing[] {
   return buildPool(
     candidates,
-    1,
+    1.15,
     (a, b) =>
       a.listing.price - b.listing.price ||
       (a.floatFitScore ?? 0) - (b.floatFitScore ?? 0),
     limit,
   );
+}
+
+/** Pool de fillers otimizado: baratos, float compatível, prioriza faixa ampla. */
+export function buildOptimalFillerPool(
+  candidates: CandidateListing[],
+  limit = 55,
+): CandidateListing[] {
+  const targetPool = extractTargetCollectionPool(candidates);
+  const fillerPool = candidates
+    .filter((c) => !c.isTargetCollection)
+    .map((c) => {
+      const range = c.item.maxFloat - c.item.minFloat;
+      const fullRangeBonus = range >= 0.95 ? -20 : range >= 0.75 ? -8 : 0;
+      const liveBonus = c.listing.marketplace === 'csfloat' ? -10 : 0;
+      const score =
+        c.listing.price * 85 +
+        (c.floatFitScore ?? 0) * 30 +
+        fullRangeBonus +
+        liveBonus;
+      return { candidate: c, score };
+    })
+    .sort((a, b) => a.score - b.score)
+    .map((entry) => entry.candidate);
+
+  return mergePools(targetPool, fillerPool, limit);
 }
 
 export function buildFloatFocusedPool(

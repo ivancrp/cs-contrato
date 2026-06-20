@@ -31,17 +31,31 @@ function pickTargetBundles(
     return sorted.slice(0, Math.min(maxBundles, sorted.length)).map((candidate) => [candidate]);
   }
 
-  const bundles: CandidateListing[][] = [sorted.slice(0, count)];
   if (count === 2) {
-    const top = sorted.slice(0, Math.min(6, sorted.length));
+    const top = sorted.slice(0, Math.min(10, sorted.length));
+    const bundles: CandidateListing[][] = [];
     for (let i = 0; i < top.length && bundles.length < maxBundles; i++) {
       for (let j = i; j < top.length && bundles.length < maxBundles; j++) {
         bundles.push([top[i], top[j]]);
       }
     }
+    return bundles.length > 0 ? bundles : [sorted.slice(0, 2)];
   }
 
-  return bundles;
+  if (count === 3) {
+    const top = sorted.slice(0, Math.min(8, sorted.length));
+    const bundles: CandidateListing[][] = [sorted.slice(0, count)];
+    for (let i = 0; i < top.length && bundles.length < maxBundles; i++) {
+      for (let j = i; j < top.length && bundles.length < maxBundles; j++) {
+        for (let k = j; k < top.length && bundles.length < maxBundles; k++) {
+          bundles.push([top[i], top[j], top[k]]);
+        }
+      }
+    }
+    return bundles;
+  }
+
+  return [sorted.slice(0, count)];
 }
 
 export function runOptimizationWithTargetMinimum(
@@ -61,7 +75,7 @@ export function runOptimizationWithTargetMinimum(
   }
 
   const fillerSlots = context.inputCount - minTargetCount;
-  const targetBundles = pickTargetBundles(targetCandidates, minTargetCount, 12);
+  const targetBundles = pickTargetBundles(targetCandidates, minTargetCount, 18);
   let best: OptimizationResult | null = null;
 
   for (const fixedTargets of targetBundles) {

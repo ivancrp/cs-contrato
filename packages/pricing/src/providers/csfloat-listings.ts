@@ -93,6 +93,7 @@ export async function fetchCsfloatListings(
         wear,
         stattrak: isStatTrak,
         inspectLink: listing.item.inspect_link,
+        purchaseUrl: `https://csfloat.com/item/${listing.id}`,
       };
     })
     .filter((listing): listing is MarketListing => listing !== null);

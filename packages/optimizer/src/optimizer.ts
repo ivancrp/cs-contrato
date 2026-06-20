@@ -13,6 +13,7 @@ export { optimizeByObjectives, ANALYSIS_OBJECTIVES, type ObjectiveOptimizationRe
 export { TIER_CONFIGS, MIN_LOSS_TIER, scoreToStars } from './tier-configs.js';
 export {
   buildCheapCandidatePool,
+  buildOptimalFillerPool,
   buildBalancedCandidatePool,
   computeConstrainedFloorCost,
   computeFloorCost,

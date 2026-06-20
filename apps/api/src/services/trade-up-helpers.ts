@@ -33,6 +33,8 @@ export interface SearchCandidate {
   isTargetCollection: boolean;
   marketplace: Marketplace;
   purchaseUrl?: string;
+  /** Listing verificado no CSFloat (não estimado por catálogo). */
+  isLiveVerified?: boolean;
 }
 
 export interface TradeUpSearchParams {
@@ -157,14 +159,14 @@ export function estimateAutoBudget(candidates: SearchCandidate[]): number {
   const fillerSorted = sorted.filter((candidate) => !candidate.isTargetCollection);
 
   if (targetSorted.length === 0) {
-    return Math.ceil(naiveFloor * 2.6) || 500;
+    return Math.ceil(naiveFloor * 1.8) || 500;
   }
 
   const targetPart = targetSorted.slice(0, 1).reduce((sum, candidate) => sum + candidate.price, 0);
   const fillerPart = fillerSorted.slice(0, 9).reduce((sum, candidate) => sum + candidate.price, 0);
   const constrainedFloor = targetPart + fillerPart;
 
-  return Math.ceil(Math.max(naiveFloor * 2.6, constrainedFloor * 1.35)) || 500;
+  return Math.ceil(Math.max(constrainedFloor * 1.25, naiveFloor * 1.8)) || 500;
 }
 
 export function resolveSearchParams(
@@ -217,6 +219,79 @@ export function candidateToContractInput(
     },
     item,
   };
+}
+
+export function buildPoolPriceLookup(
+  candidates: SearchCandidate[],
+  catalogPrices: Map<string, number>,
+  skinsById: Map<string, SkinItem>,
+): (itemId: string, expectedFloat: number) => number {
+  const byItemWear = new Map<string, number>();
+  const byItem = new Map<string, number>();
+
+  for (const candidate of candidates) {
+    const wear = floatToWear(candidate.float);
+    const wearKey = `${candidate.itemId}:${wear}`;
+    const existingWear = byItemWear.get(wearKey);
+    if (!existingWear || candidate.price < existingWear) {
+      byItemWear.set(wearKey, candidate.price);
+    }
+
+    const existingItem = byItem.get(candidate.itemId);
+    if (!existingItem || candidate.price < existingItem) {
+      byItem.set(candidate.itemId, candidate.price);
+    }
+  }
+
+  return (itemId: string, expectedFloat: number): number => {
+    const skin = skinsById.get(itemId);
+    if (!skin) return 0;
+
+    const wear = floatToWear(expectedFloat);
+    const poolWearPrice = byItemWear.get(`${itemId}:${wear}`);
+    if (poolWearPrice && poolWearPrice > 0) return poolWearPrice;
+
+    const hash = buildMarketHashName(skin.name, skin.stattrak, wear);
+    const direct = catalogPrices.get(hash);
+    if (direct && direct > 0) return direct;
+
+    const poolItemPrice = byItem.get(itemId);
+    if (poolItemPrice && poolItemPrice > 0) return poolItemPrice;
+
+    return 0;
+  };
+}
+
+export function sortSkinsByCatalogPrice(
+  skins: SkinItem[],
+  catalogPrices: Map<string, number>,
+): SkinItem[] {
+  const wearOrder: WearTier[] = [
+    'Battle-Scarred',
+    'Well-Worn',
+    'Field-Tested',
+    'Minimal Wear',
+    'Factory New',
+  ];
+
+  const minPriceForSkin = (skin: SkinItem): number => {
+    let min = Infinity;
+    for (const wear of wearOrder) {
+      const hash = buildMarketHashName(skin.name, skin.stattrak, wear);
+      const price = catalogPrices.get(hash);
+      if (price && price > 0 && price < min) min = price;
+    }
+    return Number.isFinite(min) ? min : Infinity;
+  };
+
+  return [...skins].sort((a, b) => minPriceForSkin(a) - minPriceForSkin(b));
+}
+
+export function contractCombinationSignature(inputs: ContractInput[]): string {
+  return inputs
+    .map((input) => `${input.item.id}:${input.listing.float.toFixed(4)}`)
+    .sort()
+    .join('|');
 }
 
 export function computeFloorCost(candidates: SearchCandidate[]): number {
@@ -299,5 +374,6 @@ export function toSearchCandidate(
     isTargetCollection,
     marketplace: listing.marketplace,
     purchaseUrl: listing.purchaseUrl,
+    isLiveVerified: listing.marketplace === 'csfloat' && listing.id.startsWith('csfloat-'),
   };
 }

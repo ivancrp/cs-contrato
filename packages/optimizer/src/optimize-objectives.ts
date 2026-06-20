@@ -7,9 +7,10 @@ import {
 import type { Collection, ContractInput, EVMetrics, SkinItem } from '@ct/types';
 import {
   buildBalancedCandidatePool,
-  buildCheapCandidatePool,
   buildFloatFocusedPool,
+  buildOptimalFillerPool,
   buildTargetHeavyPool,
+  computeConstrainedFloorCost,
   hasTargetCollectionCandidates,
 } from './candidate-pool.js';
 import { runOptimization, runOptimizationWithTargetMinimum } from './run-optimization.js';
@@ -18,6 +19,7 @@ import type { CandidateListing, OptimizationContext } from './scoring.js';
 const INPUT_COUNT = 10;
 
 export type AnalysisObjectiveId =
+  | 'min_cost'
   | 'min_loss'
   | 'max_profit'
   | 'max_chance'
@@ -41,6 +43,7 @@ export interface ObjectiveOptimizationResult {
 }
 
 export const ANALYSIS_OBJECTIVES: ObjectiveConfig[] = [
+  { id: 'min_cost', label: '$ Menor custo' },
   { id: 'min_loss', label: '🛡 Menor perda possível' },
   { id: 'max_profit', label: '💰 Maior lucro esperado' },
   { id: 'max_chance', label: '🎯 Maiores chances no alvo' },
@@ -81,6 +84,13 @@ function isWearValid(
 
 function objectiveScore(objectiveId: AnalysisObjectiveId, metrics: EVMetrics): number {
   switch (objectiveId) {
+    case 'min_cost':
+      return (
+        -metrics.totalCost * 800 +
+        metrics.targetChance * 400 +
+        metrics.expectedProfit * 0.3 -
+        metrics.lossChance * 50
+      );
     case 'min_loss':
       return (
         (1 - metrics.lossChance) * 500 +
@@ -136,6 +146,54 @@ function tryAddContract(
   results.push({ inputs, metrics, algorithm, signature });
 }
 
+function generateMinCostCandidates(
+  baseContext: OptimizationContext,
+  allCandidates: CandidateListing[],
+  targetSkin: SkinItem,
+  targetMaxOutputFloat: number | undefined,
+  seen: Set<string>,
+  results: GeneratedContract[],
+): void {
+  const cheapPool = buildOptimalFillerPool(allCandidates, 70);
+  if (cheapPool.length < INPUT_COUNT || !hasTargetCollectionCandidates(cheapPool)) return;
+
+  const floorCost = computeConstrainedFloorCost(cheapPool, INPUT_COUNT, 1);
+  const budget = Math.ceil(floorCost * 1.18);
+
+  const context: OptimizationContext = {
+    ...baseContext,
+    candidates: cheapPool,
+    strategy: 'min_loss',
+    budget,
+  };
+
+  for (const targetCount of [1, 2]) {
+    const fixed = runOptimizationWithTargetMinimum(context, targetCount);
+    tryAddContract(
+      fixed.inputs,
+      `min_cost_${targetCount}+${fixed.algorithm}`,
+      baseContext,
+      targetSkin,
+      targetMaxOutputFloat,
+      budget,
+      seen,
+      results,
+    );
+  }
+
+  const generic = runOptimization(context);
+  tryAddContract(
+    generic.inputs,
+    `min_cost+${generic.algorithm}`,
+    baseContext,
+    targetSkin,
+    targetMaxOutputFloat,
+    budget,
+    seen,
+    results,
+  );
+}
+
 function generateContractCandidates(
   baseContext: OptimizationContext,
   allCandidates: CandidateListing[],
@@ -146,29 +204,45 @@ function generateContractCandidates(
 ): GeneratedContract[] {
   const plan = planInputsForTargetChance(targetSkin, collections, 0.6);
   const targetCollectionId = plan?.collectionId;
-  const budget = Math.ceil(baseBudget * 3.5);
+  const cheapFloor = computeConstrainedFloorCost(allCandidates, INPUT_COUNT, 1);
+  const cheapBudget = Math.ceil(cheapFloor * 1.35);
+  const balancedBudget = Math.ceil(Math.max(baseBudget * 2, cheapFloor * 1.6));
+  const premiumBudget = Math.ceil(baseBudget * 3.2);
   const seen = new Set<string>();
   const results: GeneratedContract[] = [];
+
+  generateMinCostCandidates(
+    baseContext,
+    allCandidates,
+    targetSkin,
+    targetMaxOutputFloat,
+    seen,
+    results,
+  );
 
   const poolConfigs: {
     pool: CandidateListing[];
     strategy: OptimizationContext['strategy'];
     targetCounts: number[];
+    budget: number;
   }[] = [
     {
-      pool: buildFloatFocusedPool(allCandidates, 55),
+      pool: buildOptimalFillerPool(allCandidates, 70),
       strategy: 'min_loss',
       targetCounts: [1, 2, 3],
+      budget: cheapBudget,
     },
     {
-      pool: buildCheapCandidatePool(allCandidates, 55),
+      pool: buildFloatFocusedPool(allCandidates, 60),
       strategy: 'min_loss',
-      targetCounts: [1, 2],
+      targetCounts: [1, 2, 3],
+      budget: balancedBudget,
     },
     {
-      pool: buildBalancedCandidatePool(allCandidates, 60),
+      pool: buildBalancedCandidatePool(allCandidates, 65),
       strategy: 'max_profit',
       targetCounts: [1, 2, 3, 4],
+      budget: balancedBudget,
     },
   ];
 
@@ -179,13 +253,14 @@ function generateContractCandidates(
       .sort((a, b) => a - b);
 
     poolConfigs.push({
-      pool: buildTargetHeavyPool(allCandidates, targetCollectionId, 60),
+      pool: buildTargetHeavyPool(allCandidates, targetCollectionId, 70),
       strategy: 'max_profit_chance',
       targetCounts: chanceCounts,
+      budget: premiumBudget,
     });
   }
 
-  for (const { pool, strategy, targetCounts } of poolConfigs) {
+  for (const { pool, strategy, targetCounts, budget } of poolConfigs) {
     if (pool.length < INPUT_COUNT) continue;
 
     const context: OptimizationContext = {
@@ -263,19 +338,7 @@ function pickBestPerObjective(
       const score = objectiveScore(objective.id, candidate.metrics);
       if (!Number.isFinite(score)) continue;
 
-      if (
-        objective.id === 'high_risk_profit' &&
-        usedSignatures.has(candidate.signature) &&
-        ranked.some(
-          (alt) =>
-            alt.signature !== candidate.signature &&
-            !usedSignatures.has(alt.signature) &&
-            alt.metrics.targetChance <= (objective.maxTargetChance ?? 1) &&
-            Number.isFinite(objectiveScore(objective.id, alt.metrics)),
-        )
-      ) {
-        continue;
-      }
+      if (usedSignatures.has(candidate.signature)) continue;
 
       best = candidate;
       bestScore = score;
@@ -327,6 +390,7 @@ export function optimizeByObjectives(
   objectives.push(...ANALYSIS_OBJECTIVES);
 
   const displayOrder: AnalysisObjectiveId[] = [
+    'min_cost',
     'wear_target',
     'min_loss',
     'max_profit',

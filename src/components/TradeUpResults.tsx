@@ -9,6 +9,10 @@ export interface EnrichedTradeUpContract extends TradeUpContract {
   tierLabel: string;
   algorithmUsed?: string;
   aiScore?: number;
+  inputsVerified?: number;
+  inputsLive?: number;
+  unverifiedInputNames?: string[];
+  priceDeltaFromVerification?: number;
 }
 
 export interface TradeUpSearchResult {
@@ -196,6 +200,24 @@ function ContractCard({
               <span className="font-medium text-slate-300">
                 {wearAbbr(floatMetrics.expectedWear)} · {floatMetrics.expectedOutputFloat.toFixed(4)}
               </span>
+              {contract.inputsVerified != null && contract.inputsVerified > 0 && (
+                <span className="ml-2 text-emerald-400">
+                  · {contract.inputsVerified}/10 inputs CSFloat verificados
+                </span>
+              )}
+              {contract.priceDeltaFromVerification != null &&
+                Math.abs(contract.priceDeltaFromVerification) > 0.01 && (
+                  <span
+                    className={
+                      contract.priceDeltaFromVerification > 0
+                        ? 'ml-1 text-amber-400'
+                        : 'ml-1 text-emerald-400'
+                    }
+                  >
+                    (Δ custo {contract.priceDeltaFromVerification > 0 ? '+' : ''}
+                    {formatBrl(contract.priceDeltaFromVerification)})
+                  </span>
+                )}
             </p>
             <div className="mt-3 max-w-md">
               <WearFloatBar float={floatMetrics.expectedOutputFloat} />
@@ -237,7 +259,11 @@ function ContractCard({
                 collectionName={collectionLabels?.[input.item.collectionId]}
                 isTargetCollection={targetCollectionIds.has(input.item.collectionId)}
                 purchaseUrl={input.listing.purchaseUrl}
-                badge={`#${idx + 1}`}
+                badge={
+                  input.listing.marketplace === 'csfloat'
+                    ? `#${idx + 1} CSF`
+                    : `#${idx + 1}`
+                }
                 size="sm"
               />
             ))}
@@ -319,7 +345,7 @@ export function TradeUpResults({ result }: { result: TradeUpSearchResult }) {
     <div className="space-y-6">
       <p className="text-sm text-slate-400">
         Análise profunda · {result.contracts.length} estratégia
-        {result.contracts.length !== 1 ? 's' : ''}: menor perda, maior lucro, maiores chances e alto risco
+        {result.contracts.length !== 1 ? 's' : ''}: menor custo, profit, float ideal e verificação CSFloat
       </p>
       {result.contracts.map((contract) => (
         <ContractCard

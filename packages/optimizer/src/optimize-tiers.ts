@@ -2,8 +2,8 @@ import { planInputsForTargetChance, calculateOutputFloat, calculateAverageNormal
 import type { Collection, ContractInput, SkinItem } from '@ct/types';
 import {
   buildBalancedCandidatePool,
-  buildCheapCandidatePool,
   buildFloatFocusedPool,
+  buildOptimalFillerPool,
   buildTargetHeavyPool,
   computeConstrainedFloorCost,
   computeFloorCost,
@@ -79,7 +79,7 @@ function filterCandidatesForTier(
 ): CandidateListing[] {
   switch (config.poolType) {
     case 'cheap':
-      return buildCheapCandidatePool(candidates);
+      return buildOptimalFillerPool(candidates);
     case 'float':
       return buildFloatFocusedPool(candidates);
     case 'target_heavy':
