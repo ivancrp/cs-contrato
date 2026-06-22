@@ -1,4 +1,5 @@
 import type { SkinItem } from '@ct/types';
+import { isStatTrakEligible, withTradeUpStatTrak } from './trade-up-helpers.js';
 
 export interface SearchSkinsResult {
   results: SkinItem[];
@@ -65,10 +66,15 @@ export function searchSkins(
   if (q.length < 2) return { results: [], total: 0 };
 
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
-  let pool = skins;
+  let pool = skins.filter((skin) => !skin.stattrak);
 
-  if (options.stattrak !== undefined) {
-    pool = pool.filter((skin) => skin.stattrak === options.stattrak);
+  if (options.stattrak === true) {
+    pool = pool
+      .filter(isStatTrakEligible)
+      .map((skin) => withTradeUpStatTrak(skin, true))
+      .filter((skin): skin is SkinItem => skin !== null);
+  } else if (options.stattrak === false) {
+    pool = pool.filter((skin) => !skin.souvenir && !skin.stattrak);
   }
 
   const weaponMatches = dedupeSkins(

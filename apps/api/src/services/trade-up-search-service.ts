@@ -30,6 +30,8 @@ import {
   maxAllowedInputFloat,
   resolveSearchParams,
   resolveTargetSkin,
+  normalizeCollectionsForTradeUp,
+  withTradeUpStatTrak,
   splitInputSkinsByTargetCollection,
   toSearchCandidate,
   type SearchCandidate,
@@ -154,8 +156,9 @@ function toOptimizerCandidates(
   skinsById: Map<string, SkinItem>,
 ): CandidateListing[] {
   return pool.map((c) => {
-    const item = skinsById.get(c.itemId);
-    if (!item) throw new Error(`Skin não encontrada: ${c.itemId}`);
+    const base = skinsById.get(c.itemId);
+    if (!base) throw new Error(`Skin não encontrada: ${c.itemId}`);
+    const item = withTradeUpStatTrak(base, c.stattrak) ?? { ...base, stattrak: c.stattrak };
     const input = candidateToContractInput(c, item, 'csfloat');
     return {
       listing: input.listing,
@@ -545,18 +548,28 @@ export async function searchTradeUpContracts(
   params: TradeUpSearchParams,
 ): Promise<TradeUpSearchResponse> {
   const targetSkin = resolveTargetSkin(params, ctx.skins);
+  const tradeUpCollections = normalizeCollectionsForTradeUp(
+    ctx.collections,
+    targetSkin.stattrak,
+    !!targetSkin.souvenir,
+  );
   const draft = resolveSearchParams(params, { targetSkin });
   const { candidates, priceSource } = await buildCandidatePool(
     targetSkin,
     draft,
-    ctx.collections,
+    tradeUpCollections,
     ctx.skinsById,
   );
   const resolved = resolveSearchParams(params, { targetSkin, candidates });
   const budget = resolved.budget || estimateAutoBudget(candidates);
   const rule = defaultRuleRegistry.getOrThrow('cs2_weapon_10');
   const priceMap = await loadBulkSteamPricesBrl();
-  const poolPriceLookup = buildPoolPriceLookup(candidates, priceMap, ctx.skinsById);
+  const poolPriceLookup = buildPoolPriceLookup(
+    candidates,
+    priceMap,
+    ctx.skinsById,
+    targetSkin.stattrak,
+  );
   const preferLivePricing = priceSource === 'live';
 
   const catalogPriceLookup = (itemId: string, expectedFloat: number): number => {
@@ -565,8 +578,9 @@ export async function searchTradeUpContracts(
 
     const skin = ctx.skinsById.get(itemId);
     if (!skin) return 0;
+    const variant = withTradeUpStatTrak(skin, targetSkin.stattrak) ?? skin;
     const wear = floatToWear(expectedFloat);
-    const hash = buildMarketHashName(skin.name, skin.stattrak, wear);
+    const hash = buildMarketHashName(variant.name, variant.stattrak, wear);
     return priceMap.get(hash) ?? 0;
   };
 
@@ -581,7 +595,7 @@ export async function searchTradeUpContracts(
         inputs,
         targetSkin,
         rule,
-        collections: ctx.collections,
+        collections: tradeUpCollections,
         priceLookup: catalogPriceLookup,
       }).outputs;
     } catch {
@@ -599,7 +613,7 @@ export async function searchTradeUpContracts(
 
   const optimizationOptions = {
     targetSkin,
-    collections: ctx.collections,
+    collections: tradeUpCollections,
     baseBudget: budget,
     targetMaxOutputFloat: resolved.maxFloat,
     includeWearTarget: true,
@@ -627,7 +641,7 @@ export async function searchTradeUpContracts(
   if (tierResults.length === 0 && objectiveResults.length === 0) {
     objectiveResults = optimizeByObjectives(optimizationBase, {
       targetSkin,
-      collections: ctx.collections,
+      collections: tradeUpCollections,
       baseBudget: Math.ceil(budget * 2),
       includeWearTarget: false,
     });
@@ -642,7 +656,7 @@ export async function searchTradeUpContracts(
   const contracts = await buildContractsFromTiers(
     finalTierResults,
     targetSkin,
-    ctx.collections,
+    tradeUpCollections,
     ctx.cache,
     {
       preferredMarketplace: preferLivePricing ? 'csfloat' : params.marketplace,

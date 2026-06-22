@@ -58,7 +58,11 @@ export interface SkinItem {
   minFloat: number;
   maxFloat: number;
   stattrak: boolean;
+  /** A skin pode existir em versão StatTrak (flag do catálogo ByMykel). */
+  stattrakEligible?: boolean;
   souvenir?: boolean;
+  /** A skin pode existir em versão Souvenir (flag do catálogo ByMykel). */
+  souvenirEligible?: boolean;
   imageUrl?: string;
   paintIndex?: string;
   finishCatalog?: string;

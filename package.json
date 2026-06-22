@@ -29,7 +29,9 @@
     "catalog:sync": "tsx scripts/sync-catalog.ts",
     "postinstall": "node scripts/postinstall.mjs"
   },
-  "dependencies": {
+    "dependencies": {
+    "@ct/common": "*",
+    "@ct/engine": "*",
     "@ct/parser": "*",
     "@ct/types": "*",
     "@neondatabase/serverless": "^1.0.2",

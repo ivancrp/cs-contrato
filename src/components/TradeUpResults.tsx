@@ -3,6 +3,9 @@
 import type { TradeUpContract, WearTier } from '@ct/types';
 import { SkinItemCard, WearFloatBar } from '@/components/SkinItemCard';
 import { WEAR_ABBR } from '@/lib/market-links';
+import { EditableInputCard } from '@/components/EditableInputCard';
+import { ContractActions } from '@/components/ContractActions';
+import { useContractEditor } from '@/hooks/useContractEditor';
 
 export interface EnrichedTradeUpContract extends TradeUpContract {
   tier: string;
@@ -25,6 +28,7 @@ export interface TradeUpSearchResult {
     collectionId?: string;
     minFloat?: number;
     maxFloat?: number;
+    stattrak?: boolean;
   };
   wear?: string;
   wearAutoAdjusted?: boolean;
@@ -167,154 +171,6 @@ export function TargetSkinHero({
   );
 }
 
-function ContractCard({
-  contract,
-  collectionLabels,
-}: {
-  contract: EnrichedTradeUpContract;
-  collectionLabels?: Record<string, string>;
-}) {
-  const { evMetrics, floatMetrics, inputs, outputs } = contract;
-  const targetCollectionIds = new Set(
-    outputs.filter((o) => o.isTarget).map((o) => o.item.collectionId),
-  );
-  const totalCost = evMetrics.totalCost;
-  const maxOutputPrice = outputs.reduce((max, o) => Math.max(max, o.price), 0);
-
-  const sortedOutputs = [...outputs].sort((a, b) => {
-    if (a.isTarget !== b.isTarget) return a.isTarget ? -1 : 1;
-    return b.probability - a.probability;
-  });
-
-  return (
-    <article className="overflow-hidden rounded-xl border border-surface-border bg-[#0a0e14]">
-      <header className="border-b border-surface-border/60 bg-surface/20 px-4 py-4 sm:px-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-lg font-semibold text-slate-100">{contract.tierLabel}</h3>
-              <Stars score={contract.aiScore} />
-            </div>
-            <p className="mt-1 text-xs text-slate-500">
-              Saída esperada{' '}
-              <span className="font-medium text-slate-300">
-                {wearAbbr(floatMetrics.expectedWear)} · {floatMetrics.expectedOutputFloat.toFixed(4)}
-              </span>
-              {contract.inputsVerified != null && contract.inputsVerified > 0 && (
-                <span className="ml-2 text-emerald-400">
-                  · {contract.inputsVerified}/10 inputs CSFloat verificados
-                </span>
-              )}
-              {contract.priceDeltaFromVerification != null &&
-                Math.abs(contract.priceDeltaFromVerification) > 0.01 && (
-                  <span
-                    className={
-                      contract.priceDeltaFromVerification > 0
-                        ? 'ml-1 text-amber-400'
-                        : 'ml-1 text-emerald-400'
-                    }
-                  >
-                    (Δ custo {contract.priceDeltaFromVerification > 0 ? '+' : ''}
-                    {formatBrl(contract.priceDeltaFromVerification)})
-                  </span>
-                )}
-            </p>
-            <div className="mt-3 max-w-md">
-              <WearFloatBar float={floatMetrics.expectedOutputFloat} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4">
-            <Metric label="Custo" value={formatBrl(evMetrics.totalCost)} tone="amber" />
-            <Metric
-              label="Lucro esp."
-              value={formatBrl(evMetrics.expectedProfit)}
-              tone={evMetrics.expectedProfit >= 0 ? 'emerald' : 'red'}
-            />
-            <Metric
-              label="Chance alvo"
-              value={`${(evMetrics.targetChance * 100).toFixed(1)}%`}
-              tone="sky"
-            />
-            <Metric label="ROI" value={`${evMetrics.roi.toFixed(1)}%`} tone="slate" />
-          </div>
-        </div>
-      </header>
-
-      <div className="space-y-6 px-4 py-5 sm:px-5">
-        <section>
-          <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">
-            Skins de entrada · {inputs.length} itens
-          </h4>
-          <div className="grid grid-cols-5 gap-2 sm:gap-3">
-            {inputs.map((input, idx) => (
-              <SkinItemCard
-                key={`${input.listing.id}-${idx}`}
-                name={input.item.name}
-                imageUrl={input.item.imageUrl}
-                rarity={input.item.rarity}
-                price={input.listing.price}
-                float={input.listing.float}
-                wear={input.listing.wear}
-                collectionId={input.item.collectionId}
-                collectionName={collectionLabels?.[input.item.collectionId]}
-                isTargetCollection={targetCollectionIds.has(input.item.collectionId)}
-                purchaseUrl={input.listing.purchaseUrl}
-                badge={
-                  input.listing.marketplace === 'csfloat'
-                    ? `#${idx + 1} CSF`
-                    : `#${idx + 1}`
-                }
-                size="sm"
-              />
-            ))}
-          </div>
-        </section>
-
-        {outputs.length > 0 && (
-          <section>
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h4 className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Possíveis saídas
-              </h4>
-              <p className="text-[10px] text-slate-600">
-                <span className="text-emerald-400">■</span> maior valor ·{' '}
-                <span className="text-red-400">■</span> abaixo do custo ·{' '}
-                <span className="text-sky-400">■</span> demais saídas ({formatBrl(totalCost)})
-              </p>
-            </div>
-            <div className="grid grid-cols-5 gap-2 sm:gap-3">
-              {sortedOutputs.map((output) => (
-                <SkinItemCard
-                  key={output.item.id}
-                  name={output.item.name}
-                  imageUrl={output.item.imageUrl}
-                  rarity={output.item.rarity}
-                  price={output.price}
-                  float={output.expectedFloat}
-                  wear={output.expectedWear}
-                    collectionId={output.item.collectionId}
-                    collectionName={collectionLabels?.[output.item.collectionId]}
-                  badge={
-                    output.isTarget
-                      ? `${(output.probability * 100).toFixed(1)}% alvo`
-                      : `${(output.probability * 100).toFixed(1)}%`
-                  }
-                  className={getOutputHighlightClass(
-                    output.price,
-                    maxOutputPrice,
-                    totalCost,
-                    output.isTarget,
-                  )}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-      </div>
-    </article>
-  );
-}
-
 function Metric({
   label,
   value,
@@ -340,6 +196,185 @@ function Metric({
   );
 }
 
+function ContractCard({
+  initialContract,
+  result,
+}: {
+  initialContract: EnrichedTradeUpContract;
+  result: TradeUpSearchResult;
+}) {
+  const targetSkin = {
+    id: result.targetSkin.id,
+    minFloat: result.targetSkin.minFloat ?? 0,
+    maxFloat: result.targetSkin.maxFloat ?? 1,
+    stattrak: result.targetSkin.stattrak ?? false,
+  };
+
+  const {
+    contract,
+    editMode,
+    setEditMode,
+    updateInput,
+    recalculating,
+    error,
+  } = useContractEditor(initialContract, targetSkin);
+
+  const { evMetrics, floatMetrics, inputs, outputs } = contract;
+  const targetCollectionIds = new Set(
+    outputs.filter((o) => o.isTarget).map((o) => o.item.collectionId),
+  );
+  const totalCost = evMetrics.totalCost;
+  const maxOutputPrice = outputs.reduce((max, o) => Math.max(max, o.price), 0);
+
+  const sortedOutputs = [...outputs].sort((a, b) => {
+    if (a.isTarget !== b.isTarget) return a.isTarget ? -1 : 1;
+    return b.probability - a.probability;
+  });
+
+  return (
+    <article className="overflow-hidden rounded-xl border border-surface-border bg-[#0a0e14]">
+      <header className="border-b border-surface-border/60 bg-surface/20 px-4 py-4 sm:px-5">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-semibold text-slate-100">{contract.tierLabel}</h3>
+                <Stars score={contract.aiScore} />
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Saída esperada{' '}
+                <span className="font-medium text-slate-300">
+                  {wearAbbr(floatMetrics.expectedWear)} · {floatMetrics.expectedOutputFloat.toFixed(4)}
+                </span>
+                {contract.inputsVerified != null && contract.inputsVerified > 0 && (
+                  <span className="ml-2 text-emerald-400">
+                    · {contract.inputsVerified}/10 inputs CSFloat verificados
+                  </span>
+                )}
+              </p>
+              <div className="mt-3 max-w-md">
+                <WearFloatBar float={floatMetrics.expectedOutputFloat} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4">
+              <Metric label="Custo" value={formatBrl(evMetrics.totalCost)} tone="amber" />
+              <Metric
+                label="Lucro esp."
+                value={formatBrl(evMetrics.expectedProfit)}
+                tone={evMetrics.expectedProfit >= 0 ? 'emerald' : 'red'}
+              />
+              <Metric
+                label="Chance alvo"
+                value={`${(evMetrics.targetChance * 100).toFixed(1)}%`}
+                tone="sky"
+              />
+              <Metric label="ROI" value={`${evMetrics.roi.toFixed(1)}%`} tone="slate" />
+            </div>
+          </div>
+
+          <ContractActions
+            contract={contract}
+            targetSkin={result.targetSkin}
+            wear={result.wear}
+            collectionLabels={result.collectionLabels}
+            editMode={editMode}
+            onEditModeChange={setEditMode}
+            recalculating={recalculating}
+          />
+
+          {editMode && (
+            <p className="text-xs text-slate-500">
+              Ajuste float e preço de cada entrada — as saídas e métricas atualizam automaticamente.
+            </p>
+          )}
+          {error && (
+            <p className="text-xs text-amber-400">{error}</p>
+          )}
+        </div>
+      </header>
+
+      <div className="space-y-6 px-4 py-5 sm:px-5">
+        <section>
+          <h4 className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">
+            Skins de entrada · {inputs.length} itens
+          </h4>
+          <div className="grid grid-cols-5 gap-2 sm:gap-3">
+            {inputs.map((input, idx) => (
+              <EditableInputCard
+                key={`${input.listing.id}-${idx}`}
+                name={input.item.name}
+                imageUrl={input.item.imageUrl}
+                rarity={input.item.rarity}
+                price={input.listing.price}
+                float={input.listing.float}
+                wear={input.listing.wear}
+                minFloat={input.item.minFloat}
+                maxFloat={input.item.maxFloat}
+                collectionId={input.item.collectionId}
+                collectionName={result.collectionLabels?.[input.item.collectionId]}
+                isTargetCollection={targetCollectionIds.has(input.item.collectionId)}
+                purchaseUrl={editMode ? undefined : input.listing.purchaseUrl}
+                badge={
+                  input.listing.marketplace === 'csfloat'
+                    ? `#${idx + 1} CSF`
+                    : `#${idx + 1}`
+                }
+                editable={editMode}
+                onFloatChange={(value) => updateInput(idx, 'float', value)}
+                onPriceChange={(value) => updateInput(idx, 'price', value)}
+              />
+            ))}
+          </div>
+        </section>
+
+        {outputs.length > 0 && (
+          <section>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h4 className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Possíveis saídas
+                {recalculating && (
+                  <span className="ml-2 font-normal normal-case text-slate-600">· atualizando preços…</span>
+                )}
+              </h4>
+              <p className="text-[10px] text-slate-600">
+                <span className="text-emerald-400">■</span> maior valor ·{' '}
+                <span className="text-red-400">■</span> abaixo do custo ·{' '}
+                <span className="text-sky-400">■</span> demais saídas ({formatBrl(totalCost)})
+              </p>
+            </div>
+            <div className="grid grid-cols-5 gap-2 sm:gap-3">
+              {sortedOutputs.map((output) => (
+                <SkinItemCard
+                  key={output.item.id}
+                  name={output.item.name}
+                  imageUrl={output.item.imageUrl}
+                  rarity={output.item.rarity}
+                  price={output.price}
+                  float={output.expectedFloat}
+                  wear={output.expectedWear}
+                  collectionId={output.item.collectionId}
+                  collectionName={result.collectionLabels?.[output.item.collectionId]}
+                  badge={
+                    output.isTarget
+                      ? `${(output.probability * 100).toFixed(1)}% alvo`
+                      : `${(output.probability * 100).toFixed(1)}%`
+                  }
+                  className={getOutputHighlightClass(
+                    output.price,
+                    maxOutputPrice,
+                    totalCost,
+                    output.isTarget,
+                  )}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    </article>
+  );
+}
+
 export function TradeUpResults({ result }: { result: TradeUpSearchResult }) {
   return (
     <div className="space-y-6">
@@ -349,9 +384,9 @@ export function TradeUpResults({ result }: { result: TradeUpSearchResult }) {
       </p>
       {result.contracts.map((contract) => (
         <ContractCard
-          key={contract.tier}
-          contract={contract}
-          collectionLabels={result.collectionLabels}
+          key={`${contract.tier}-${contract.id}`}
+          initialContract={contract}
+          result={result}
         />
       ))}
     </div>

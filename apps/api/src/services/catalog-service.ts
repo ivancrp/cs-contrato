@@ -31,7 +31,7 @@ async function loadFromPrisma(): Promise<LoadedCatalog | null> {
   }
 }
 
-const CATALOG_CACHE_KEY = 'catalog:v2';
+const CATALOG_CACHE_KEY = 'catalog:v4';
 
 export async function loadCatalog(cache: CacheAdapter): Promise<LoadedCatalog> {
   const fromDb = await loadFromPrisma();

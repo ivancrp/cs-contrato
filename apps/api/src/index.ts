@@ -2,7 +2,7 @@ import { createCacheAdapter } from '@ct/common';
 import { refreshTradeUpCollectionEligibility } from '@ct/contracts';
 import { defaultRuleRegistry } from '@ct/contracts';
 import { buildTradeUpContract } from '@ct/engine';
-import { buildContractWithMarketPrices } from './services/contract-service.js';
+import { registerContractRoutes } from './routes/contracts.js';
 import { loadCatalog } from './services/catalog-service.js';
 import { createDefaultPriceAggregator } from '@ct/pricing';
 import { optimize } from '@ct/optimizer';
@@ -141,33 +141,7 @@ export async function buildApp() {
     return { rules: defaultRuleRegistry.list() };
   });
 
-  app.post('/contracts/build', async (req, reply) => {
-    const body = req.body as {
-      inputs: ContractInput[];
-      targetSkinId: string;
-      ruleId?: string;
-    };
-
-    const ctx = await getContext();
-    const targetSkin = ctx.skinsById.get(body.targetSkinId);
-    if (!targetSkin) return reply.status(404).send({ error: 'Skin alvo não encontrada' });
-
-    const rule = defaultRuleRegistry.getOrThrow(body.ruleId ?? 'cs2_weapon_10');
-    const aggregator = createDefaultPriceAggregator(ctx.cache);
-
-    try {
-      const contract = await buildContractWithMarketPrices({
-        inputs: body.inputs,
-        targetSkin,
-        rule,
-        collections: ctx.collections,
-        priceAggregator: aggregator,
-      });
-      return contract;
-    } catch (err) {
-      return reply.status(400).send({ error: (err as Error).message });
-    }
-  });
+  await registerContractRoutes(app, getContext);
 
   await registerSimulationRoutes(app);
   await registerRiskRoutes(app);

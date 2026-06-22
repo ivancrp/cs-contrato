@@ -52,6 +52,44 @@ export function buildMarketHashName(name: string, stattrak: boolean, wear: WearT
   return `${prefix}${name} (${wear})`;
 }
 
+/** Indica se a skin pode ser usada em contrato StatTrak. */
+export function isStatTrakEligible(skin: SkinItem): boolean {
+  if (skin.souvenir) return false;
+  if (skin.stattrak) return true;
+  return Boolean(skin.stattrakEligible);
+}
+
+/** Aplica modo StatTrak/souvenir da busca sobre a skin base do catálogo. */
+export function withTradeUpStatTrak(skin: SkinItem, stattrak: boolean): SkinItem | null {
+  if (skin.souvenir && stattrak) return null;
+  if (!stattrak) {
+    return { ...skin, stattrak: false, souvenir: skin.souvenir ?? false };
+  }
+  if (!isStatTrakEligible(skin)) return null;
+  return { ...skin, stattrak: true, souvenir: false };
+}
+
+function matchesTradeUpStatTrak(item: SkinItem, wantsStatTrak: boolean): boolean {
+  if (item.souvenir) return !wantsStatTrak;
+  if (!wantsStatTrak) return !item.stattrak;
+  return isStatTrakEligible(item);
+}
+
+/** Coleções com flags de StatTrak alinhadas ao contrato (outputs/inputs corretos na engine). */
+export function normalizeCollectionsForTradeUp(
+  collections: Collection[],
+  stattrak: boolean,
+  souvenir = false,
+): Collection[] {
+  return collections.map((collection) => ({
+    ...collection,
+    items: collection.items
+      .filter((item) => matchesTradeUpStatTrak(item, stattrak) && !!item.souvenir === souvenir)
+      .map((item) => withTradeUpStatTrak(item, stattrak))
+      .filter((item): item is SkinItem => item !== null),
+  }));
+}
+
 export function resolveTargetWear(
   targetSkin: SkinItem,
   requestedWear: WearTier,
@@ -78,7 +116,7 @@ export function collectionHasTradeUpOutput(
   return collection.items.some(
     (item) =>
       item.rarity === outputRarity &&
-      item.stattrak === stattrak &&
+      matchesTradeUpStatTrak(item, stattrak) &&
       !!item.souvenir === souvenir,
   );
 }
@@ -109,20 +147,23 @@ export function findInputCandidates(
   );
 
   return collections.flatMap((col) =>
-    col.items.filter(
-      (item) =>
-        item.rarity === inputRarity &&
-        item.stattrak === targetSkin.stattrak &&
-        !!item.souvenir === !!targetSkin.souvenir &&
-        item.minFloat <= maxInputFloatForTargetOutput(maxFloat, item, targetSkin) &&
-        isTradeUpEligibleInputCollection(item.collectionId, targetCollectionIds) &&
-        collectionHasTradeUpOutput(
-          col,
-          targetSkin.rarity,
-          targetSkin.stattrak,
-          !!targetSkin.souvenir,
-        ),
-    ),
+    col.items
+      .filter(
+        (item) =>
+          item.rarity === inputRarity &&
+          matchesTradeUpStatTrak(item, targetSkin.stattrak) &&
+          !!item.souvenir === !!targetSkin.souvenir &&
+          item.minFloat <= maxInputFloatForTargetOutput(maxFloat, item, targetSkin) &&
+          isTradeUpEligibleInputCollection(item.collectionId, targetCollectionIds) &&
+          collectionHasTradeUpOutput(
+            col,
+            targetSkin.rarity,
+            targetSkin.stattrak,
+            !!targetSkin.souvenir,
+          ),
+      )
+      .map((item) => withTradeUpStatTrak(item, targetSkin.stattrak))
+      .filter((item): item is SkinItem => item !== null),
   );
 }
 
@@ -130,23 +171,35 @@ export function resolveTargetSkin(
   params: TradeUpSearchParams,
   skins: SkinItem[],
 ): SkinItem {
+  const basePool = skins.filter((s) => !s.stattrak);
+
   if (params.targetSkinId) {
-    const byId = skins.find((s) => s.id === params.targetSkinId);
-    if (byId) return byId;
+    const byId = basePool.find((s) => s.id === params.targetSkinId);
+    if (byId) {
+      const variant = withTradeUpStatTrak(byId, params.stattrak);
+      if (!variant) {
+        throw new Error(`Skin não disponível em StatTrak: ${byId.name}`);
+      }
+      return variant;
+    }
   }
 
   const normalized = params.skinName.toLowerCase().trim();
-  const pool = skins.filter((s) => s.stattrak === params.stattrak);
-  const exact = pool.filter((s) => s.name.toLowerCase() === normalized);
+  const exact = basePool.filter((s) => s.name.toLowerCase() === normalized);
   const candidates = exact.length > 0
     ? exact
-    : pool.filter((s) => s.name.toLowerCase().includes(normalized));
+    : basePool.filter((s) => s.name.toLowerCase().includes(normalized));
 
   if (candidates.length === 0) {
     throw new Error(`Skin não encontrada: ${params.skinName}`);
   }
 
-  return candidates[0];
+  const variant = withTradeUpStatTrak(candidates[0], params.stattrak);
+  if (!variant) {
+    throw new Error(`Skin não disponível em StatTrak: ${params.skinName}`);
+  }
+
+  return variant;
 }
 
 export function estimateAutoBudget(candidates: SearchCandidate[]): number {
@@ -225,6 +278,7 @@ export function buildPoolPriceLookup(
   candidates: SearchCandidate[],
   catalogPrices: Map<string, number>,
   skinsById: Map<string, SkinItem>,
+  tradeUpStatTrak?: boolean,
 ): (itemId: string, expectedFloat: number) => number {
   const byItemWear = new Map<string, number>();
   const byItem = new Map<string, number>();
@@ -251,7 +305,8 @@ export function buildPoolPriceLookup(
     const poolWearPrice = byItemWear.get(`${itemId}:${wear}`);
     if (poolWearPrice && poolWearPrice > 0) return poolWearPrice;
 
-    const hash = buildMarketHashName(skin.name, skin.stattrak, wear);
+    const stattrak = tradeUpStatTrak ?? skin.stattrak;
+    const hash = buildMarketHashName(skin.name, stattrak, wear);
     const direct = catalogPrices.get(hash);
     if (direct && direct > 0) return direct;
 

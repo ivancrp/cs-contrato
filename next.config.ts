@@ -4,6 +4,7 @@ const apiTarget = process.env.API_PROXY_TARGET ?? 'http://localhost:3001';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  transpilePackages: ['@ct/engine', '@ct/common', '@ct/types', '@ct/contracts'],
   eslint: {
     ignoreDuringBuilds: true,
   },

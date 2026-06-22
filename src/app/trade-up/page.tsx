@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { API_BASE } from '@/lib/api';
 import {
   defaultWearForSkin,
@@ -13,8 +14,11 @@ import { Toggle } from '@/components/Toggle';
 import { WearSelect } from '@/components/WearSelect';
 import { TradeUpResults, TargetSkinHero, type TradeUpSearchResult } from '@/components/TradeUpResults';
 import type { WearTier } from '@ct/types';
+import type { FavoriteContractPayload } from '@/lib/favorite-contracts';
+import { loadSharedContract, sharedPayloadToSearchResult } from '@/lib/trade-up-api';
 
-export default function TradeUpPage() {
+function TradeUpPageContent() {
+  const searchParams = useSearchParams();
   const [skinName, setSkinName] = useState('');
   const [selectedSkinId, setSelectedSkinId] = useState<string | undefined>();
   const [selectedSkin, setSelectedSkin] = useState<SkinHit | null>(null);
@@ -25,6 +29,64 @@ export default function TradeUpPage() {
   const [result, setResult] = useState<TradeUpSearchResult | null>(null);
   const [previewSkin, setPreviewSkin] = useState<SkinHit | null>(null);
   const [collectionLabels, setCollectionLabels] = useState<Record<string, string>>({});
+  const [loadedFromShare, setLoadedFromShare] = useState(false);
+
+  useEffect(() => {
+    const shareId = searchParams.get('share');
+    const favoriteFlag = searchParams.get('favorite');
+
+    if (favoriteFlag === '1') {
+      try {
+        const raw = sessionStorage.getItem('ct-load-favorite');
+        if (raw) {
+          const payload = JSON.parse(raw) as FavoriteContractPayload;
+          setResult({
+            targetSkin: payload.targetSkin,
+            wear: payload.wear,
+            contracts: [payload.contract],
+            collectionLabels: payload.collectionLabels,
+            marketAvailability: {
+              listingsFound: payload.contract.inputs.length,
+              priceSource: 'catalog',
+            },
+          });
+          setSkinName(payload.targetSkin.name);
+          setSelectedSkinId(payload.targetSkin.id);
+          setStattrak(Boolean(payload.targetSkin.stattrak));
+          if (payload.wear) setWear(payload.wear as WearTier);
+          setLoadedFromShare(true);
+          sessionStorage.removeItem('ct-load-favorite');
+        }
+      } catch {
+        /* ignora payload inválido */
+      }
+      return;
+    }
+
+    if (!shareId || loadedFromShare) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const payload = await loadSharedContract(shareId);
+        if (cancelled) return;
+        setResult(sharedPayloadToSearchResult(payload));
+        setSkinName(payload.targetSkin.name);
+        setSelectedSkinId(payload.targetSkin.id);
+        setStattrak(Boolean(payload.targetSkin.stattrak));
+        if (payload.wear) setWear(payload.wear as WearTier);
+        setLoadedFromShare(true);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Link inválido');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, loadedFromShare]);
 
   useEffect(() => {
     fetch(`${API_BASE}/catalog`)
@@ -247,5 +309,13 @@ export default function TradeUpPage() {
 
       {result && <TradeUpResults result={result} />}
     </div>
+  );
+}
+
+export default function TradeUpPage() {
+  return (
+    <Suspense fallback={<div className="text-slate-400">Carregando…</div>}>
+      <TradeUpPageContent />
+    </Suspense>
   );
 }

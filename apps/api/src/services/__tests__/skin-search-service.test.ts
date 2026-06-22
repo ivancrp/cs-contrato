@@ -59,4 +59,57 @@ describe('searchSkins', () => {
     expect(total).toBe(20);
     expect(results).toHaveLength(20);
   });
+
+  it('retorna skins elegíveis a StatTrak com flag stattrak true', () => {
+    const withSt = [
+      ...sample,
+      {
+        id: 'm4-lotus',
+        name: 'M4A1-S | Black Lotus',
+        weapon: 'M4A1-S',
+        collectionId: 'c4',
+        rarity: 'classified' as const,
+        minFloat: 0,
+        maxFloat: 0.7,
+        stattrak: false,
+        stattrakEligible: true,
+      },
+      {
+        id: 'souvenir-awp',
+        name: 'AWP | Dragon Lore',
+        weapon: 'AWP',
+        collectionId: 'c5',
+        rarity: 'covert' as const,
+        minFloat: 0,
+        maxFloat: 1,
+        stattrak: false,
+        souvenir: true,
+      },
+    ];
+
+    const { results } = searchSkins(withSt, 'Black Lotus', { stattrak: true, limit: 12 });
+    expect(results).toHaveLength(1);
+    expect(results[0]?.name).toBe('M4A1-S | Black Lotus');
+    expect(results[0]?.stattrak).toBe(true);
+  });
+
+  it('exclui souvenir da busca StatTrak', () => {
+    const withSouvenir = [
+      {
+        id: 'souvenir-awp',
+        name: 'AWP | Dragon Lore',
+        weapon: 'AWP',
+        collectionId: 'c5',
+        rarity: 'covert' as const,
+        minFloat: 0,
+        maxFloat: 1,
+        stattrak: false,
+        souvenir: true,
+        stattrakEligible: true,
+      },
+    ];
+
+    const { results } = searchSkins(withSouvenir, 'Dragon', { stattrak: true, limit: 12 });
+    expect(results).toHaveLength(0);
+  });
 });
